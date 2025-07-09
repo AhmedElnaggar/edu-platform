@@ -1,1 +1,13 @@
+# IDE
 .idea/
+*.iml
+
+# Build
+target/
+*.jar
+
+# Docker
+docker-compose.override.yml
+
+# Kubernetes
+kubeconfig
