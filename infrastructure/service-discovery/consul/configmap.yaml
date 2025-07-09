@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: consul-config
+data:
+  services.json: |
+    {
+      "services": [
+        {
+          "name": "auth-service",
+          "port": 8081,
+          "checks": [
+            {
+              "http": "http://localhost:8081/actuator/health",
+              "interval": "10s"
+            }
+          ]
+        }
+      ]
+    }
