@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
     @PostMapping("/login")
     public String login(@RequestBody LoginRequest request) {
-        // Implement JWT logic here
+        // Implementation here
         return "mock-jwt-token";
     }
 }
