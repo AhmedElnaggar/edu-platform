@@ -10,11 +10,18 @@ spring:
     username: auth_user
     password: auth_password
     driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 20000
+      maximum-pool-size: 5
+      minimum-idle: 2
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   cloud:
     consul:
@@ -22,16 +29,36 @@ spring:
       port: 8500
       discovery:
         service-name: auth-service
+        health-check-path: /actuator/health
+        health-check-interval: 10s
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  health:
+    db:
+      enabled: true
+    consul:
+      enabled: true
 
 jwt:
-  secret: myVerySecretKeyForJWTTokenGeneration
-  expiration: 86400000
+  secret: ${JWT_SECRET:myVerySecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLong}
+  expiration: ${JWT_EXPIRATION:86400000}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+
+logging:
+  level:
+    com.edu.auth: INFO
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
 ---
 spring:
