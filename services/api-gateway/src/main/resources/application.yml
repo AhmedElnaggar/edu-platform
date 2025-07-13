@@ -1,0 +1,53 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/auth/**
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/users/**
+        - id: course-service
+          uri: lb://course-service
+          predicates:
+            - Path=/courses/**
+
+    consul:
+      host: localhost
+      port: 8500
+      discovery:
+        service-name: api-gateway
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+---
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+  cloud:
+    consul:
+      host: consul
+
+  data:
+    redis:
+      host: redis

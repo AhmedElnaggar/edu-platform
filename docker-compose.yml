@@ -1,14 +1,238 @@
 version: '3.8'
+
 services:
-  auth-service:
-    build: ./auth-service
+  # ===================
+  # DATABASES
+  # ===================
+  auth-db:
+    image: postgres:15
+    container_name: auth-postgres
+    environment:
+      POSTGRES_DB: auth_service
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_password
     ports:
-      - "8081:8081"
-  user-service:
-    build: ./user-service
+      - "5432:5432"
+    volumes:
+      - auth_data:/var/lib/postgresql/data
+      - ./databases/auth-db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - edu-network
+
+  user-db:
+    image: postgres:15
+    container_name: user-postgres
+    environment:
+      POSTGRES_DB: user_service
+      POSTGRES_USER: user_user
+      POSTGRES_PASSWORD: user_password
     ports:
-      - "8082:8082"
+      - "5433:5432"
+    volumes:
+      - user_data:/var/lib/postgresql/data
+      - ./databases/user-db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - edu-network
+
+  course-db:
+    image: mongo:6
+    container_name: course-mongo
+    environment:
+      MONGO_INITDB_DATABASE: course_service
+      MONGO_INITDB_ROOT_USERNAME: course_user
+      MONGO_INITDB_ROOT_PASSWORD: course_password
+    ports:
+      - "27017:27017"
+    volumes:
+      - course_data:/data/db
+      - ./databases/course-db/init.js:/docker-entrypoint-initdb.d/init.js
+    networks:
+      - edu-network
+
+  keycloak-db:
+    image: postgres:15
+    container_name: keycloak-postgres
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    volumes:
+      - keycloak_data:/var/lib/postgresql/data
+    networks:
+      - edu-network
+
+  # ===================
+  # INFRASTRUCTURE
+  # ===================
+  redis:
+    image: redis:7-alpine
+    container_name: redis-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - edu-network
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    networks:
+      - edu-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - edu-network
+
+  # ===================
+  # SECURITY
+  # ===================
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+    ports:
+      - "8090:8080"
+    command: start-dev
+    depends_on:
+      - keycloak-db
+    networks:
+      - edu-network
+
+  # ===================
+  # MONITORING
+  # ===================
+  consul:
+    image: consul:latest
+    container_name: consul
+    ports:
+      - "8500:8500"
+    command: consul agent -dev -client=0.0.0.0
+    networks:
+      - edu-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - edu-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    networks:
+      - edu-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    networks:
+      - edu-network
+
+  # ===================
+  # MICROSERVICES
+  # ===================
   api-gateway:
-    build: ./api-gateway
+    build: ./services/api-gateway
+    container_name: api-gateway
     ports:
       - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - redis
+      - consul
+    networks:
+      - edu-network
+
+  auth-service:
+    build: ./services/auth-service
+    container_name: auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - auth-db
+      - consul
+    networks:
+      - edu-network
+
+  user-service:
+    build: ./services/user-service
+    container_name: user-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - user-db
+      - redis
+      - consul
+    networks:
+      - edu-network
+
+  course-service:
+    build: ./services/course-service
+    container_name: course-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - course-db
+      - kafka
+      - consul
+    networks:
+      - edu-network
+
+volumes:
+  auth_data:
+  user_data:
+  course_data:
+  keycloak_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  edu-network:
+    driver: bridge

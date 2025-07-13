@@ -1,0 +1,46 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: course-service
+
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/course_service
+
+  cloud:
+    consul:
+      host: localhost
+      port: 8500
+      discovery:
+        service-name: course-service
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+---
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+  data:
+    mongodb:
+      uri: mongodb://course-db:27017/course_service
+
+  cloud:
+    consul:
+      host: consul
+
+  kafka:
+    bootstrap-servers: kafka:9092

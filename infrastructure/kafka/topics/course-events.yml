@@ -1,7 +1,0 @@
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: course-events
-spec:
-  partitions: 3
-  replicas: 2
