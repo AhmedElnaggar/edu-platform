@@ -104,7 +104,7 @@ public class EnrollmentService {
     public Page<EnrollmentDto> getCourseEnrollments(String courseId, Pageable pageable) {
         log.info("Fetching enrollments for course: {}", courseId);
 
-        List<Enrollment> enrollments = enrollmentRepository.findByCourseId(courseId);
+        Page<Enrollment> enrollments = enrollmentRepository.findByCourseId(courseId,pageable);
         return enrollments.map(this::convertToDto);
     }
 

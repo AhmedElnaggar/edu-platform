@@ -61,58 +61,57 @@ spring:
             - StripPrefix=2
             - RewritePath=/health/courses/(?<path>.*), /${path}
 
-        # Global CORS configuration
-        globalcors:
-          corsConfigurations:
-            '[/**]':
-              allowedOrigins: "*"
-              allowedMethods:
-                - GET
-                - POST
-                - PUT
-                - DELETE
-                - OPTIONS
-              allowedHeaders: "*"
-              allowCredentials: false
+      # Global CORS configuration
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: false
 
-        # Service Discovery
-        consul:
-          host: localhost
-          port: 8500
-          discovery:
-            service-name: api-gateway
-            health-check-path: /actuator/health
-            health-check-interval: 10s
-            prefer-ip-address: true
+  # Consul Configuration
+  consul:
+    host: localhost
+    port: 8500
+    discovery:
+      service-name: api-gateway
+      health-check-path: /actuator/health
+      health-check-interval: 10s
+      prefer-ip-address: true
 
-        # Management endpoints
-        management:
-          endpoints:
-            web:
-              exposure:
-                include: health,info,metrics,prometheus,gateway
-          endpoint:
-            health:
-              show-details: always
-            gateway:
-              enabled: true
+  # Management endpoints
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: health,info,metrics,prometheus,gateway
+    endpoint:
+      health:
+        show-details: always
+      gateway:
+        enabled: true
 
-        # Logging
-        logging:
-          level:
-            org.springframework.cloud.gateway: DEBUG
-            org.springframework.web.reactive: DEBUG
-            reactor.netty: DEBUG
-          pattern:
-            console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+  # Logging
+  logging:
+    level:
+      org.springframework.cloud.gateway: DEBUG
+      org.springframework.web.reactive: DEBUG
+      reactor.netty: DEBUG
+    pattern:
+      console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
 
-        ---
-        # Docker Profile
-        spring:
-          config:
-            activate:
-              on-profile: docker
-
-          cloud:
-            consul:
-              host: consul
+---
+# Docker Profile
+spring:
+  config:
+    activate:
+      on-profile: docker
+  cloud:
+    consul:
+      host: consul

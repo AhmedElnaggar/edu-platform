@@ -17,6 +17,7 @@ public interface EnrollmentRepository extends MongoRepository<Enrollment, String
     List<Enrollment> findByUserId(String userId);
 
     List<Enrollment> findByCourseId(String courseId);
+    Page<Enrollment> findByCourseId(String courseId, Pageable pageable);
 
     Optional<Enrollment> findByUserIdAndCourseId(String userId, String courseId);
 
