@@ -1,46 +1,118 @@
 server:
-  port: 8083
+  port: 8080
 
 spring:
   application:
-    name: course-service
-
-  data:
-    mongodb:
-      uri: mongodb://localhost:27017/course_service
+    name: api-gateway
 
   cloud:
-    consul:
-      host: localhost
-      port: 8500
+    gateway:
       discovery:
-        service-name: course-service
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        # Auth Service Routes
+        - id: auth-login
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=1
 
-  kafka:
-    bootstrap-servers: localhost:9092
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+        # User Service Routes
+        - id: user-profiles
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - StripPrefix=1
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,prometheus
+        # Course Service Routes
+        - id: courses
+          uri: lb://course-service
+          predicates:
+            - Path=/api/courses/**
+          filters:
+            - StripPrefix=1
 
----
-spring:
-  config:
-    activate:
-      on-profile: docker
+        # Health Check Routes (Direct access)
+        - id: auth-health
+          uri: lb://auth-service
+          predicates:
+            - Path=/health/auth/**
+          filters:
+            - StripPrefix=2
+            - RewritePath=/health/auth/(?<path>.*), /${path}
 
-  data:
-    mongodb:
-      uri: mongodb://course-db:27017/course_service
+        - id: user-health
+          uri: lb://user-service
+          predicates:
+            - Path=/health/users/**
+          filters:
+            - StripPrefix=2
+            - RewritePath=/health/users/(?<path>.*), /${path}
 
-  cloud:
-    consul:
-      host: consul
+        - id: course-health
+          uri: lb://course-service
+          predicates:
+            - Path=/health/courses/**
+          filters:
+            - StripPrefix=2
+            - RewritePath=/health/courses/(?<path>.*), /${path}
 
-  kafka:
-    bootstrap-servers: kafka:9092
+        # Global CORS configuration
+        globalcors:
+          corsConfigurations:
+            '[/**]':
+              allowedOrigins: "*"
+              allowedMethods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              allowedHeaders: "*"
+              allowCredentials: false
+
+        # Service Discovery
+        consul:
+          host: localhost
+          port: 8500
+          discovery:
+            service-name: api-gateway
+            health-check-path: /actuator/health
+            health-check-interval: 10s
+            prefer-ip-address: true
+
+        # Management endpoints
+        management:
+          endpoints:
+            web:
+              exposure:
+                include: health,info,metrics,prometheus,gateway
+          endpoint:
+            health:
+              show-details: always
+            gateway:
+              enabled: true
+
+        # Logging
+        logging:
+          level:
+            org.springframework.cloud.gateway: DEBUG
+            org.springframework.web.reactive: DEBUG
+            reactor.netty: DEBUG
+          pattern:
+            console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+
+        ---
+        # Docker Profile
+        spring:
+          config:
+            activate:
+              on-profile: docker
+
+          cloud:
+            consul:
+              host: consul
