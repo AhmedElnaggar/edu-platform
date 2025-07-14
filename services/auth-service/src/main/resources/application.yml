@@ -5,6 +5,7 @@ spring:
   application:
     name: auth-service
 
+  # Database Configuration
   datasource:
     url: jdbc:postgresql://localhost:5432/auth_service
     username: auth_user
@@ -12,9 +13,12 @@ spring:
     driver-class-name: org.postgresql.Driver
     hikari:
       connection-timeout: 20000
-      maximum-pool-size: 5
-      minimum-idle: 2
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
+      leak-detection-threshold: 60000
 
+  # JPA Configuration
   jpa:
     hibernate:
       ddl-auto: validate
@@ -22,7 +26,17 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+    open-in-view: false
 
+  # Flyway Configuration
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  # Service Discovery
   cloud:
     consul:
       host: localhost
@@ -30,8 +44,16 @@ spring:
       discovery:
         service-name: auth-service
         health-check-path: /actuator/health
-        health-check-interval: 10s
+        health-check-interval: 60s
+        prefer-ip-address: true
 
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:myVerySecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLongAndSecure}
+  expiration: ${JWT_EXPIRATION:86400000}  # 24 hours
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}  # 7 days
+
+# Management & Monitoring
 management:
   endpoints:
     web:
@@ -46,21 +68,22 @@ management:
       enabled: true
     consul:
       enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
 
-jwt:
-  secret: ${JWT_SECRET:myVerySecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLong}
-  expiration: ${JWT_EXPIRATION:86400000}
-  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
-
+# Logging
 logging:
   level:
     com.edu.auth: INFO
     org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
 
 ---
+# Docker Profile
 spring:
   config:
     activate:
@@ -72,3 +95,4 @@ spring:
   cloud:
     consul:
       host: consul
+      port: 8500

@@ -1,14 +1,10 @@
 package com.edu.common.utils;
-public class ValidationUtils {
-    public static boolean isNumeric(String str) {
-        if (str == null) {
-            return false;
-        }
-        try {
-            Integer.parseInt(str);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-        }
+
+import java.util.Date;
+
+public class DateUtils {
+    public static String formatDate(Date date) {
+        // Implement date formatting logic
+        return "formattedDate";
     }
 }

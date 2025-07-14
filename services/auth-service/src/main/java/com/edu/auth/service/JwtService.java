@@ -1,6 +1,7 @@
 package com.edu.auth.service;
 
 import com.edu.auth.entity.User;
+import com.edu.auth.entity.Role;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
@@ -12,29 +13,35 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class JwtService {
 
-    @Value("${jwt.secret:myVerySecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLong}")
+    @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration:86400000}") // 24 hours
+    @Value("${jwt.expiration}")
     private long jwtExpirationMs;
 
-    @Value("${jwt.refresh-expiration:604800000}") // 7 days
+    @Value("${jwt.refresh-expiration}")
     private long refreshExpirationMs;
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
-    public String generateToken(User user) {
+    public String generateAccessToken(User user) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId().toString());
         claims.put("email", user.getEmail());
-        claims.put("enabled", user.getEnabled());
+        claims.put("firstName", user.getFirstName());
+        claims.put("lastName", user.getLastName());
+        claims.put("roles", user.getRoles().stream()
+                .map(Role::getName)
+                .collect(Collectors.toList()));
+        claims.put("type", "access");
 
         return createToken(claims, user.getUsername(), jwtExpirationMs);
     }
@@ -75,11 +82,28 @@ public class JwtService {
         return getClaimsFromToken(token).getSubject();
     }
 
+    public String getUserIdFromToken(String token) {
+        return getClaimsFromToken(token).get("userId", String.class);
+    }
+
     public Claims getClaimsFromToken(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+    }
+
+    public boolean isTokenExpired(String token) {
+        try {
+            Date expiration = getClaimsFromToken(token).getExpiration();
+            return expiration.before(new Date());
+        } catch (JwtException e) {
+            return true;
+        }
+    }
+
+    public long getExpirationTime() {
+        return jwtExpirationMs;
     }
 }
