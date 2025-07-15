@@ -1,76 +1,135 @@
 package com.edu.gateway.filter;
 
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import com.edu.gateway.service.JwtService;
+
 import java.util.List;
-import java.util.UUID;
+import java.util.function.Predicate;
 
 @Component
-@Slf4j
 public class AuthenticationFilter implements GlobalFilter, Ordered {
 
-    private static final List<String> EXCLUDED_PATHS = List.of(
-            "/api/auth/login",
-            "/api/auth/register",
-            "/api/courses", // Public course listing
-            "/health",
-            "/actuator"
-    );
+    @Autowired
+    private JwtService jwtService;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
 
-        log.info("Processing request to path: {}", path);
+        System.out.println("🔐 AuthenticationFilter processing: " + request.getMethod() + " " + path);
 
-        // Skip authentication for excluded paths
-        if (shouldSkipAuth(path)) {
-            log.info("Skipping authentication for path: {}", path);
-            return chain.filter(exchange);
+        // Check if the request is for a secured endpoint
+        if (isSecured.test(request)) {
+            System.out.println("🔒 Secured endpoint detected, checking authentication...");
+
+            // Check if Authorization header is present
+            if (this.isAuthMissing(request)) {
+                System.out.println("❌ Authorization header is missing");
+                return this.onError(exchange, "Authorization header is missing in request", HttpStatus.UNAUTHORIZED);
+            }
+
+            final String token = this.getAuthHeader(request);
+            System.out.println("🎫 Token extracted: " + (token != null ? token.substring(0, Math.min(20, token.length())) + "..." : "null"));
+
+            // Validate JWT token
+            if (jwtService.isInvalid(token)) {
+                System.out.println("❌ Token is invalid");
+                return this.onError(exchange, "Authorization header is invalid", HttpStatus.UNAUTHORIZED);
+            }
+
+            System.out.println("✅ Token is valid, proceeding with request");
+
+            // Extract user information from token and add to request headers
+            this.populateRequestWithHeaders(exchange, token);
+        } else {
+            System.out.println("🔓 Open endpoint, skipping authentication");
         }
 
-        // Check for Authorization header
-        String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            log.warn("Missing or invalid Authorization header for path: {}", path);
-            return handleUnauthorized(exchange);
-        }
-
-        // Add request ID for tracing
-        String requestId = UUID.randomUUID().toString();
-        ServerHttpRequest modifiedRequest = request.mutate()
-                .header("X-Request-ID", requestId)
-                .build();
-
-        ServerWebExchange modifiedExchange = exchange.mutate()
-                .request(modifiedRequest)
-                .build();
-
-        log.info("Request authenticated for path: {} with requestId: {}", path, requestId);
-        return chain.filter(modifiedExchange);
-    }
-
-    private boolean shouldSkipAuth(String path) {
-        return EXCLUDED_PATHS.stream()
-                .anyMatch(excludedPath -> path.startsWith(excludedPath));
-    }
-
-    private Mono<Void> handleUnauthorized(ServerWebExchange exchange) {
-        exchange.getResponse().setStatusCode(org.springframework.http.HttpStatus.UNAUTHORIZED);
-        return exchange.getResponse().setComplete();
+        return chain.filter(exchange);
     }
 
     @Override
     public int getOrder() {
-        return -1; // Execute before other filters
+        return -1; // High priority
     }
+
+    private Mono<Void> onError(ServerWebExchange exchange, String err, HttpStatus httpStatus) {
+        ServerHttpResponse response = exchange.getResponse();
+        response.setStatusCode(httpStatus);
+        response.getHeaders().add("Content-Type", "application/json");
+
+        String body = "{\"error\":\"" + err + "\"}";
+        System.out.println("🚨 Returning error: " + httpStatus + " - " + err);
+        return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())));
+    }
+
+    private String getAuthHeader(ServerHttpRequest request) {
+        String authHeader = request.getHeaders().getFirst("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+        return null;
+    }
+
+    private boolean isAuthMissing(ServerHttpRequest request) {
+        return !request.getHeaders().containsKey("Authorization");
+    }
+
+    private void populateRequestWithHeaders(ServerWebExchange exchange, String token) {
+        try {
+            String userId = jwtService.extractUserId(token);
+            String userRole = jwtService.extractUserRole(token);
+            String username = jwtService.extractUsername(token);
+
+            System.out.println("👤 Extracted user info - ID: " + userId + ", Username: " + username + ", Role: " + userRole);
+
+            ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                    .header("X-User-Id", userId != null ? userId : "")
+                    .header("X-User-Role", userRole != null ? userRole : "")
+                    .header("X-Username", username != null ? username : "")
+                    .build();
+
+            exchange.getRequest().mutate().build();
+
+        } catch (Exception e) {
+            System.err.println("❌ Error extracting user info from token: " + e.getMessage());
+        }
+    }
+
+    // Define which endpoints are secured (require authentication)
+    private final Predicate<ServerHttpRequest> isSecured = request -> {
+        String path = request.getURI().getPath();
+
+        // List of open endpoints that don't require authentication
+        List<String> openApiEndpoints = List.of(
+                "/auth/register",
+                "/auth/login",
+                "/auth/refresh",
+                "/actuator",
+                "/health",
+                "/swagger-ui",
+                "/api-docs",
+                "/debug"  // Add debug endpoints to open list
+        );
+
+        // Check if the current path matches any open endpoint
+        boolean isOpenEndpoint = openApiEndpoints.stream()
+                .anyMatch(openPath -> path.contains(openPath));
+
+        System.out.println("🔍 Path: " + path + " - Open endpoint: " + isOpenEndpoint);
+
+        return !isOpenEndpoint;
+    };
 }

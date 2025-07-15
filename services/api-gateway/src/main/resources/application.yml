@@ -4,50 +4,100 @@ server:
 spring:
   application:
     name: api-gateway
-
   cloud:
     gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
       routes:
         - id: auth-service
           uri: lb://auth-service
           predicates:
             - Path=/auth/**
+          filters:
+            - StripPrefix=1
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
         - id: user-service
           uri: lb://user-service
           predicates:
             - Path=/users/**
+          filters:
+            - StripPrefix=1
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
         - id: course-service
           uri: lb://course-service
           predicates:
             - Path=/courses/**
+          filters:
+            - StripPrefix=1
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
 
-    consul:
-      host: localhost
-      port: 8500
-      discovery:
-        service-name: api-gateway
+  # Redis Configuration
+  redis:
+    host: localhost
+    port: 6379
+    password: # leave empty if no password
+    database: 0
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: -1ms
+  consul:
+    host: localhost
+    port: 8500
+    discovery:
+      enabled: true
+      register: true
+      service-name: ${spring.application.name}
+      health-check-interval: 15s
+      health-check-timeout: 10s
+      health-check-critical-timeout: 30s
 
-  data:
-    redis:
-      host: localhost
-      port: 6379
+# JWT Configuration
+jwt:
+  secret: myVerySecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLongAndSecure
+  expiration: 86400000 # 24 hours in milliseconds
 
+# Logging Configuration
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web.reactive: DEBUG
+    com.edu.gateway: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Management endpoints
 management:
   endpoints:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
 
----
-spring:
-  config:
-    activate:
-      on-profile: docker
-
-  cloud:
-    consul:
-      host: consul
-
-  data:
-    redis:
-      host: redis
+# Gateway timeout configuration
+spring.cloud.gateway.httpclient:
+  connect-timeout: 5000
+  response-timeout: 10000

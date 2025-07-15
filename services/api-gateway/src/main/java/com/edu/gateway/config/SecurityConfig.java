@@ -10,6 +10,7 @@ import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebFluxSecurity
@@ -21,9 +22,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers("/actuator/**").permitAll()
-                        .pathMatchers("/auth/login", "/auth/register").permitAll()
-                        .anyExchange().authenticated()
+                        // Allow all requests - authentication is handled by our custom filter
+                        .anyExchange().permitAll()
                 )
                 .build();
     }
@@ -31,13 +31,33 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+
+        // Allow specific origins (update with your frontend URLs)
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+                "http://localhost:3000",
+                "http://localhost:4200",
+                "https://your-frontend-domain.com"
+        ));
+
+        // Allow all headers
+        configuration.setAllowedHeaders(List.of("*"));
+
+        // Allow all HTTP methods
+        configuration.setAllowedMethods(Arrays.asList(
+                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+        ));
+
+        // Allow credentials
         configuration.setAllowCredentials(true);
+
+        // Expose Authorization header to frontend
+        configuration.setExposedHeaders(Arrays.asList(
+                "Authorization", "X-User-Id", "X-User-Role"
+        ));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
+
         return source;
     }
 }

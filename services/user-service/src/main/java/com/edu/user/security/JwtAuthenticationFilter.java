@@ -1,3 +1,4 @@
+/*
 package com.edu.user.security;
 
 import com.edu.user.client.AuthServiceClient;
@@ -56,4 +57,4 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         filterChain.doFilter(request, response);
     }
-}
+}*/
