@@ -56,7 +56,7 @@ public class EnrollmentService {
 
         // Verify user exists
         try {
-            userServiceClient.checkUserExists(UUID.fromString(userId), authHeader);
+            userServiceClient.checkUserExists(userId, authHeader);
         } catch (Exception e) {
             throw new EnrollmentException("Invalid user");
         }

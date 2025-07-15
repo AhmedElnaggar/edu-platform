@@ -91,7 +91,7 @@ public class CourseService {
 
         // Verify instructor exists
         try {
-            userServiceClient.checkUserExists(UUID.fromString(instructorId), authHeader);
+            userServiceClient.checkUserExists(instructorId, authHeader);
         } catch (Exception e) {
             throw new UnauthorizedAccessException("Invalid instructor");
         }

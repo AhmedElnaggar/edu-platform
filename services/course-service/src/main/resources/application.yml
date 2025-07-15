@@ -1,110 +1,74 @@
 server:
-  port: 8080
+  port: 8083
 
 spring:
   application:
-    name: api-gateway
+    name: course-service
 
+  # MongoDB Configuration
+  data:
+    mongodb:
+      uri: mongodb://course_user:course_password@localhost:27017/course_service?authSource=admin
+      auto-index-creation: true
+
+  # Service Discovery
   cloud:
-    gateway:
+    consul:
+      host: localhost
+      port: 8500
       discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
-      routes:
-        # Auth Service Routes
-        - id: auth-login
-          uri: lb://auth-service
-          predicates:
-            - Path=/api/auth/**
-          filters:
-            - StripPrefix=1
+        service-name: course-service
+        health-check-path: /actuator/health
+        health-check-interval: 10s
+        prefer-ip-address: true
 
-        # User Service Routes
-        - id: user-profiles
-          uri: lb://user-service
-          predicates:
-            - Path=/api/users/**
-          filters:
-            - StripPrefix=1
+  # Kafka Configuration
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+    consumer:
+      group-id: course-service-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.edu.course.events"
 
-        # Course Service Routes
-        - id: courses
-          uri: lb://course-service
-          predicates:
-            - Path=/api/courses/**
-          filters:
-            - StripPrefix=1
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:myVerySecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLongAndSecure}
 
-        # Health Check Routes (Direct access)
-        - id: auth-health
-          uri: lb://auth-service
-          predicates:
-            - Path=/health/auth/**
-          filters:
-            - StripPrefix=2
-            - RewritePath=/health/auth/(?<path>.*), /${path}
+# External Services
+auth-service:
+  url: http://localhost:8081
+user-service:
+  url: http://localhost:8082
 
-        - id: user-health
-          uri: lb://user-service
-          predicates:
-            - Path=/health/users/**
-          filters:
-            - StripPrefix=2
-            - RewritePath=/health/users/(?<path>.*), /${path}
+# Management & Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    mongo:
+      enabled: true
+    consul:
+      enabled: true
 
-        - id: course-health
-          uri: lb://course-service
-          predicates:
-            - Path=/health/courses/**
-          filters:
-            - StripPrefix=2
-            - RewritePath=/health/courses/(?<path>.*), /${path}
-
-      # Global CORS configuration
-      globalcors:
-        corsConfigurations:
-          '[/**]':
-            allowedOrigins: "*"
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - OPTIONS
-            allowedHeaders: "*"
-            allowCredentials: false
-
-  # Consul Configuration
-  consul:
-    host: localhost
-    port: 8500
-    discovery:
-      service-name: api-gateway
-      health-check-path: /actuator/health
-      health-check-interval: 10s
-      prefer-ip-address: true
-
-  # Management endpoints
-  management:
-    endpoints:
-      web:
-        exposure:
-          include: health,info,metrics,prometheus,gateway
-    endpoint:
-      health:
-        show-details: always
-      gateway:
-        enabled: true
-
-  # Logging
-  logging:
-    level:
-      org.springframework.cloud.gateway: DEBUG
-      org.springframework.web.reactive: DEBUG
-      reactor.netty: DEBUG
-    pattern:
-      console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+# Logging
+logging:
+  level:
+    com.edu.course: INFO
+    org.springframework.data.mongodb: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
 
 ---
 # Docker Profile
@@ -112,6 +76,19 @@ spring:
   config:
     activate:
       on-profile: docker
+
+  data:
+    mongodb:
+      uri: mongodb://course-db:27017/course_service
+
   cloud:
     consul:
       host: consul
+
+  kafka:
+    bootstrap-servers: kafka:9092
+
+auth-service:
+  url: http://auth-service:8081
+user-service:
+  url: http://user-service:8082
