@@ -33,7 +33,7 @@ public class UserService {
     private final UserPreferencesRepository userPreferencesRepository;
     private final UserEventPublisher eventPublisher;
 
-    @Cacheable(value = "user-profiles", key = "#userId")
+    @Cacheable(value = "user-profiles", key = "#p0")
     public UserDto getUserProfile(UUID userId) {
         log.info("Fetching user profile for userId: {}", userId);
 

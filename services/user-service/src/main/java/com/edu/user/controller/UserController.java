@@ -51,7 +51,7 @@ public class UserController {
     }
 
     @GetMapping("/profile/{userId}")
-    public ResponseEntity<UserDto> getUserProfile(@PathVariable UUID userId) {
+    public ResponseEntity<UserDto> getUserProfile(@PathVariable("userId") UUID userId) {
         log.info("Fetching user profile for userId: {}", userId);
 
         UserDto userDto = userService.getUserProfile(userId);
