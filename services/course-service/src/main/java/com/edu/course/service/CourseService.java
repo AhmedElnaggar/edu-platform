@@ -2,13 +2,13 @@ package com.edu.course.service;
 
 import com.edu.course.client.UserServiceClient;
 import com.edu.course.document.Course;
-import com.edu.course.dto.CourseDto;
-import com.edu.course.dto.CreateCourseRequest;
+import com.edu.course.dto.*;
 import com.edu.course.events.CourseEventPublisher;
 import com.edu.course.exception.CourseNotFoundException;
 import com.edu.course.exception.UnauthorizedAccessException;
 import com.edu.course.repository.CourseRepository;
 import com.edu.course.repository.EnrollmentRepository;
+import com.edu.course.utils.CourseValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -18,8 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,10 +29,10 @@ public class CourseService {
     private final EnrollmentRepository enrollmentRepository;
     private final UserServiceClient userServiceClient;
     private final CourseEventPublisher eventPublisher;
+    private final CourseValidator courseValidator;
 
     public Page<CourseDto> getAllPublishedCourses(Pageable pageable) {
         log.info("Fetching all published courses");
-
         Page<Course> courses = courseRepository.findByActiveTrueAndStatus("PUBLISHED", pageable);
         return courses.map(this::convertToDto);
     }
@@ -47,13 +45,12 @@ public class CourseService {
 
         CourseDto dto = convertToDto(course);
 
-        // Check if user is enrolled
+        // Check if user is enrolled (if user is provided)
         if (userId != null) {
             boolean isEnrolled = enrollmentRepository.existsByUserIdAndCourseId(userId, courseId);
             dto.setIsEnrolled(isEnrolled);
 
             if (isEnrolled) {
-                // Get user progress
                 enrollmentRepository.findByUserIdAndCourseId(userId, courseId)
                         .ifPresent(enrollment -> dto.setUserProgress(enrollment.getProgress()));
             }
@@ -64,21 +61,18 @@ public class CourseService {
 
     public Page<CourseDto> searchCourses(String searchTerm, Pageable pageable) {
         log.info("Searching courses with term: {}", searchTerm);
-
         Page<Course> courses = courseRepository.searchCourses(searchTerm, pageable);
         return courses.map(this::convertToDto);
     }
 
     public Page<CourseDto> getCoursesByCategory(String category, Pageable pageable) {
         log.info("Fetching courses by category: {}", category);
-
         Page<Course> courses = courseRepository.findByTagsIn(List.of(category), pageable);
         return courses.map(this::convertToDto);
     }
 
     public List<CourseDto> getCoursesByInstructor(String instructorId) {
         log.info("Fetching courses by instructor: {}", instructorId);
-
         List<Course> courses = courseRepository.findByInstructorId(instructorId);
         return courses.stream()
                 .map(this::convertToDto)
@@ -87,15 +81,20 @@ public class CourseService {
 
     @Transactional
     public CourseDto createCourse(CreateCourseRequest request, String instructorId, String authHeader) {
-        log.info("Creating course for instructor: {}", instructorId);
+        log.info("Creating course '{}' for instructor: {}", request.getTitle(), instructorId);
+
+        // Validate the request
+        courseValidator.validateCreateRequest(request);
 
         // Verify instructor exists
         try {
             userServiceClient.checkUserExists(instructorId, authHeader);
         } catch (Exception e) {
+            log.error("Failed to verify instructor: {}", instructorId, e);
             throw new UnauthorizedAccessException("Invalid instructor");
         }
 
+        // Create course
         Course course = Course.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
@@ -119,11 +118,13 @@ public class CourseService {
                 .currentEnrollments(0)
                 .rating(0.0)
                 .reviewCount(0)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
                 .build();
 
         course = courseRepository.save(course);
 
-        // Publish event
+        // Publish course created event
         eventPublisher.publishCourseCreated(course);
 
         log.info("Course created successfully with id: {}", course.getId());
@@ -137,10 +138,13 @@ public class CourseService {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new CourseNotFoundException("Course not found with id: " + courseId));
 
-        // Verify instructor owns the course
+        // Check if instructor owns the course
         if (!course.getInstructorId().equals(instructorId)) {
             throw new UnauthorizedAccessException("You can only update your own courses");
         }
+
+        // Validate the update request
+        courseValidator.validateUpdateRequest(request, course);
 
         // Update course fields
         course.setTitle(request.getTitle());
@@ -158,10 +162,11 @@ public class CourseService {
         course.setSubtitles(request.getSubtitles());
         course.setThumbnailUrl(request.getThumbnailUrl());
         course.setPreviewVideoUrl(request.getPreviewVideoUrl());
+        course.setUpdatedAt(LocalDateTime.now());
 
         course = courseRepository.save(course);
 
-        // Publish event
+        // Publish course updated event
         eventPublisher.publishCourseUpdated(course);
 
         log.info("Course updated successfully: {}", courseId);
@@ -175,16 +180,20 @@ public class CourseService {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new CourseNotFoundException("Course not found with id: " + courseId));
 
-        // Verify instructor owns the course
+        // Check if instructor owns the course
         if (!course.getInstructorId().equals(instructorId)) {
             throw new UnauthorizedAccessException("You can only publish your own courses");
         }
 
+        // Validate course can be published
+        courseValidator.validateCourseForPublishing(course);
+
         course.setStatus("PUBLISHED");
         course.setPublishedAt(LocalDateTime.now());
+        course.setUpdatedAt(LocalDateTime.now());
         courseRepository.save(course);
 
-        // Publish event
+        // Publish course published event
         eventPublisher.publishCoursePublished(course);
 
         log.info("Course published successfully: {}", courseId);
@@ -197,7 +206,7 @@ public class CourseService {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new CourseNotFoundException("Course not found with id: " + courseId));
 
-        // Verify instructor owns the course
+        // Check if instructor owns the course
         if (!course.getInstructorId().equals(instructorId)) {
             throw new UnauthorizedAccessException("You can only delete your own courses");
         }
@@ -207,17 +216,17 @@ public class CourseService {
         if (enrollmentCount > 0) {
             // Soft delete - mark as inactive
             course.setActive(false);
+            course.setUpdatedAt(LocalDateTime.now());
             courseRepository.save(course);
+            log.info("Course soft-deleted due to enrollments: {}", courseId);
         } else {
             // Hard delete
             courseRepository.delete(course);
+            log.info("Course hard-deleted: {}", courseId);
         }
 
-        // Publish event
-        // Publish event
+        // Publish course deleted event
         eventPublisher.publishCourseDeleted(courseId, instructorId);
-
-        log.info("Course deleted successfully: {}", courseId);
     }
 
     public long getCourseCountByInstructor(String instructorId) {
@@ -258,7 +267,194 @@ public class CourseService {
                 .createdAt(course.getCreatedAt())
                 .updatedAt(course.getUpdatedAt())
                 .publishedAt(course.getPublishedAt())
-                .modules(course.getModules())
+                .modules(convertModulesToDto(course.getModules()))
+                // Additional metadata
+                .level(course.getLevel())
+                .certificateEnabled(course.getCertificateEnabled())
+                .prerequisites(course.getPrerequisites())
+                .totalLessons(course.getTotalLessons())
+                .totalVideos(course.getTotalVideos())
+                .lastUpdatedBy(course.getLastUpdatedBy())
+                // SEO fields
+                .metaTitle(course.getMetaTitle())
+                .metaDescription(course.getMetaDescription())
+                .keywords(course.getKeywords())
+                // Statistics
+                .totalViews(course.getTotalViews())
+                .totalWishlists(course.getTotalWishlists())
+                .lastViewedAt(course.getLastViewedAt())
+                .build();
+    }
+
+    private List<CourseModuleDto> convertModulesToDto(List<Course.CourseModule> modules) {
+        if (modules == null) {
+            return null;
+        }
+        return modules.stream()
+                .map(this::convertModuleToDto)
+                .collect(Collectors.toList());
+    }
+
+    private CourseModuleDto convertModuleToDto(Course.CourseModule module) {
+        return CourseModuleDto.builder()
+                .id(module.getId())
+                .title(module.getTitle())
+                .description(module.getDescription())
+                .orderIndex(module.getOrderIndex())
+                .duration(module.getDuration())
+                .isPreview(module.getIsPreview())
+                .lessons(convertLessonsToDto(module.getLessons()))
+                .createdAt(module.getCreatedAt())
+                .updatedAt(module.getUpdatedAt())
+                .createdBy(module.getCreatedBy())
+                .lastUpdatedBy(module.getLastUpdatedBy())
+                .isActive(module.getIsActive())
+                .moduleType(module.getModuleType())
+                .totalLessons(module.getTotalLessons())
+                .completedLessons(module.getCompletedLessons())
+                .completionPercentage(module.getCompletionPercentage())
+                .content(module.getContent())
+                .instructions(module.getInstructions())
+                .maxAttempts(module.getMaxAttempts())
+                .isRequired(module.getIsRequired())
+                .build();
+    }
+
+    private List<CourseLessonDto> convertLessonsToDto(List<Course.CourseLesson> lessons) {
+        if (lessons == null) {
+            return null;
+        }
+        return lessons.stream()
+                .map(this::convertLessonToDto)
+                .collect(Collectors.toList());
+    }
+
+    private CourseLessonDto convertLessonToDto(Course.CourseLesson lesson) {
+        return CourseLessonDto.builder()
+                .id(lesson.getId())
+                .title(lesson.getTitle())
+                .description(lesson.getDescription())
+                .videoUrl(lesson.getVideoUrl())
+                .duration(lesson.getDuration())
+                .orderIndex(lesson.getOrderIndex())
+                .isPreview(lesson.getIsPreview())
+                .contentType(lesson.getContentType())
+                .resources(convertResourcesToDto(lesson.getResources()))
+                .createdAt(lesson.getCreatedAt())
+                .updatedAt(lesson.getUpdatedAt())
+                .createdBy(lesson.getCreatedBy())
+                .lastUpdatedBy(lesson.getLastUpdatedBy())
+                .isActive(lesson.getIsActive())
+                .videoQuality(lesson.getVideoQuality())
+                .transcriptUrl(lesson.getTranscriptUrl())
+                .captionsUrl(lesson.getCaptionsUrl())
+                .viewCount(lesson.getViewCount())
+                .isCompleted(lesson.getIsCompleted())
+                .averageWatchTime(lesson.getAverageWatchTime())
+                .maxScore(lesson.getMaxScore())
+                .passingScore(lesson.getPassingScore())
+                .isGraded(lesson.getIsGraded())
+                .assignmentInstructions(lesson.getAssignmentInstructions())
+                .quizQuestions(convertQuizQuestionsToDto(lesson.getQuizQuestions()))
+                .videoProvider(lesson.getVideoProvider())
+                .videoId(lesson.getVideoId())
+                .allowDownload(lesson.getAllowDownload())
+                .videoThumbnail(lesson.getVideoThumbnail())
+                .textContent(lesson.getTextContent())
+                .htmlContent(lesson.getHtmlContent())
+                .isRequired(lesson.getIsRequired())
+                .minWatchTime(lesson.getMinWatchTime())
+                .allowSkip(lesson.getAllowSkip())
+                .build();
+    }
+
+    private List<CourseResourceDto> convertResourcesToDto(List<Course.CourseResource> resources) {
+        if (resources == null) {
+            return null;
+        }
+        return resources.stream()
+                .map(this::convertResourceToDto)
+                .collect(Collectors.toList());
+    }
+
+    private CourseResourceDto convertResourceToDto(Course.CourseResource resource) {
+        return CourseResourceDto.builder()
+                .id(resource.getId())
+                .title(resource.getTitle())
+                .description(resource.getDescription())
+                .url(resource.getUrl())
+                .type(resource.getType())
+                .size(resource.getSize())
+                .mimeType(resource.getMimeType())
+                .createdAt(resource.getCreatedAt())
+                .createdBy(resource.getCreatedBy())
+                .isDownloadable(resource.getIsDownloadable())
+                .isExternal(resource.getIsExternal())
+                .fileExtension(resource.getFileExtension())
+                .downloadCount(resource.getDownloadCount())
+                .isActive(resource.getIsActive())
+                .originalFileName(resource.getOriginalFileName())
+                .storagePath(resource.getStoragePath())
+                .checksum(resource.getChecksum())
+                .isProcessed(resource.getIsProcessed())
+                .thumbnailUrl(resource.getThumbnailUrl())
+                .provider(resource.getProvider())
+                .isRequired(resource.getIsRequired())
+                .accessLevel(resource.getAccessLevel())
+                .expiresAt(resource.getExpiresAt())
+                .build();
+    }
+
+    private List<QuizQuestionDto> convertQuizQuestionsToDto(List<Course.QuizQuestion> questions) {
+        if (questions == null) {
+            return null;
+        }
+        return questions.stream()
+                .map(this::convertQuizQuestionToDto)
+                .collect(Collectors.toList());
+    }
+
+    private QuizQuestionDto convertQuizQuestionToDto(Course.QuizQuestion question) {
+        return QuizQuestionDto.builder()
+                .id(question.getId())
+                .question(question.getQuestion())
+                .questionType(question.getQuestionType())
+                .options(convertQuizOptionsToDto(question.getOptions()))
+                .correctAnswer(question.getCorrectAnswer())
+                .explanation(question.getExplanation())
+                .points(question.getPoints())
+                .orderIndex(question.getOrderIndex())
+                .createdAt(question.getCreatedAt())
+                .createdBy(question.getCreatedBy())
+                .isActive(question.getIsActive())
+                .difficulty(question.getDifficulty())
+                .timeLimit(question.getTimeLimit())
+                .isRequired(question.getIsRequired())
+                .tags(question.getTags())
+                .imageUrl(question.getImageUrl())
+                .videoUrl(question.getVideoUrl())
+                .audioUrl(question.getAudioUrl())
+                .build();
+    }
+
+    private List<QuizOptionDto> convertQuizOptionsToDto(List<Course.QuizOption> options) {
+        if (options == null) {
+            return null;
+        }
+        return options.stream()
+                .map(this::convertQuizOptionToDto)
+                .collect(Collectors.toList());
+    }
+
+    private QuizOptionDto convertQuizOptionToDto(Course.QuizOption option) {
+        return QuizOptionDto.builder()
+                .id(option.getId())
+                .text(option.getText())
+                .isCorrect(option.getIsCorrect())
+                .orderIndex(option.getOrderIndex())
+                .explanation(option.getExplanation())
+                .imageUrl(option.getImageUrl())
+                .isActive(option.getIsActive())
                 .build();
     }
 }

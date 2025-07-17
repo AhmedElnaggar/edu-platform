@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -17,7 +18,7 @@ public class EnrollmentDto {
     private String userId;
     private String status;
     private Double progress;
-    private Double amountPaid;
+    private BigDecimal amountPaid;
     private LocalDateTime enrolledAt;
     private LocalDateTime completedAt;
     private LocalDateTime lastAccessedAt;

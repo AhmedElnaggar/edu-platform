@@ -90,11 +90,27 @@ services:
     volumes:
       - course_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
+    restart: unless-stopped
+    networks:
+      - edu-network
+
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: mongo-express
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://course_user:course_password@course-db:27017/course_service?authSource=admin
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: pass
+    ports:
+      - "8089:8081"
+    depends_on:
+      course-db:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - edu-network

@@ -11,6 +11,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -38,7 +39,7 @@ public class Enrollment {
     @Builder.Default
     private Double progress = 0.0; // 0.0 to 100.0
 
-    private Double amountPaid;
+    private BigDecimal amountPaid;
     private String paymentId;
     private String paymentMethod;
 

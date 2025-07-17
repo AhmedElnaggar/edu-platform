@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification - EDU Platform</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 300;
+        }
+        .header .logo {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 40px 30px;
+            background-color: #ffffff;
+        }
+        .greeting {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .message {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.8;
+        }
+        .verification-section {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .verify-button {
+            display: inline-block;
+            padding: 15px 35px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        .verify-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        .alternative-link {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .alternative-link p {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #666;
+        }
+        .alternative-link a {
+            color: #667eea;
+            word-break: break-all;
+            text-decoration: none;
+        }
+        .alternative-link a:hover {
+            text-decoration: underline;
+        }
+        .expiry-notice {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 25px 0;
+            color: #856404;
+        }
+        .expiry-notice .icon {
+            display: inline-block;
+            margin-right: 8px;
+            font-size: 16px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 30px 20px;
+            text-align: center;
+            border-top: 1px solid #e9ecef;
+        }
+        .footer p {
+            margin: 0;
+            font-size: 14px;
+            color: #666;
+        }
+        .footer .social-links {
+            margin-top: 20px;
+        }
+        .footer .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .footer .social-links a:hover {
+            text-decoration: underline;
+        }
+        .security-notice {
+            background-color: #f8f9fa;
+            border-left: 4px solid #6c757d;
+            padding: 15px;
+            margin: 25px 0;
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            .container {
+                margin: 0 10px;
+            }
+            .header {
+                padding: 30px 15px;
+            }
+            .header h1 {
+                font-size: 24px;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .verify-button {
+                padding: 12px 25px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div class="logo">🎓</div>
+        <h1>Welcome to EDU Platform!</h1>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+        <div class="greeting">
+            Hello <span th:text="${firstName}">Student</span>! 👋
+        </div>
+
+        <div class="message">
+            Thank you for registering with <strong>EDU Platform</strong>. We're excited to have you join our learning community!
+        </div>
+
+        <div class="message">
+            To complete your registration and start your educational journey, please verify your email address by clicking the button below:
+        </div>
+
+        <!-- Verification Button -->
+        <div class="verification-section">
+            <a th:href="${verificationUrl}" class="verify-button">
+                ✅ Verify Email Address
+            </a>
+        </div>
+
+        <!-- Alternative Link -->
+        <div class="alternative-link">
+            <p><strong>Button not working?</strong> Copy and paste this link into your browser:</p>
+            <a th:href="${verificationUrl}" th:text="${verificationUrl}">verification-link</a>
+        </div>
+
+        <!-- Expiry Notice -->
+        <div class="expiry-notice">
+            <span class="icon">⏰</span>
+            <strong>Important:</strong> This verification link will expire in 24 hours for security reasons.
+        </div>
+
+        <!-- Security Notice -->
+        <div class="security-notice">
+            <strong>Security Note:</strong> If you didn't create an account with EDU Platform, please ignore this email. Your email address will not be added to our system.
+        </div>
+
+        <div class="message">
+            Once verified, you'll be able to:
+            <ul style="margin: 15px 0; padding-left: 20px;">
+                <li>Access your personalized dashboard</li>
+                <li>Enroll in courses and programs</li>
+                <li>Connect with instructors and fellow students</li>
+                <li>Track your learning progress</li>
+            </ul>
+        </div>
+
+        <div class="message">
+            If you have any questions or need assistance, feel free to contact our support team.
+        </div>
+
+        <div class="message">
+            Happy learning! 🚀<br>
+            <strong>The EDU Platform Team</strong>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>&copy; 2025 EDU Platform. All rights reserved.</p>
+        <div class="social-links">
+            <a th:href="${baseUrl + '/support'}">Support</a>
+            <a th:href="${baseUrl + '/privacy'}">Privacy Policy</a>
+            <a th:href="${baseUrl + '/terms'}">Terms of Service</a>
+        </div>
+        <p style="margin-top: 15px; font-size: 12px;">
+            This email was sent to <span th:text="${user.email}">user@example.com</span><br>
+            EDU Platform, Learning Hub, Education City
+        </p>
+    </div>
+</div>
+</body>
+</html>

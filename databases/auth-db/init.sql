@@ -1,224 +1,224 @@
--- Auth Service Database Initialization
--- This script sets up the authentication database with users, roles, and permissions
-
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Users table
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    enabled BOOLEAN DEFAULT true,
-    account_non_expired BOOLEAN DEFAULT true,
-    account_non_locked BOOLEAN DEFAULT true,
-    credentials_non_expired BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Roles table
-CREATE TABLE IF NOT EXISTS roles (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(50) UNIQUE NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- User roles junction table
-CREATE TABLE IF NOT EXISTS user_roles (
-    user_id UUID NOT NULL,
-    role_id UUID NOT NULL,
-    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (user_id, role_id),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
-);
-
--- Permissions table
-CREATE TABLE IF NOT EXISTS permissions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(100) UNIQUE NOT NULL,
-    description TEXT,
-    resource VARCHAR(50) NOT NULL,
-    action VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Role permissions junction table
-CREATE TABLE IF NOT EXISTS role_permissions (
-    role_id UUID NOT NULL,
-    permission_id UUID NOT NULL,
-    granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (role_id, permission_id),
-    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
-    FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
-);
-
--- Password reset tokens table
-CREATE TABLE IF NOT EXISTS password_reset_tokens (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL,
-    token VARCHAR(255) UNIQUE NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    used BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- Email verification tokens table
-CREATE TABLE IF NOT EXISTS email_verification_tokens (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL,
-    token VARCHAR(255) UNIQUE NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    verified BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- Audit log table
-CREATE TABLE IF NOT EXISTS auth_audit_log (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID,
-    action VARCHAR(50) NOT NULL,
-    resource VARCHAR(100),
-    ip_address INET,
-    user_agent TEXT,
-    success BOOLEAN NOT NULL,
-    error_message TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-);
-
--- Indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_enabled ON users(enabled);
-CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON user_roles(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_roles_role_id ON user_roles(role_id);
-CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
-CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
-CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id ON email_verification_tokens(user_id);
-CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_token ON email_verification_tokens(token);
-CREATE INDEX IF NOT EXISTS idx_auth_audit_log_user_id ON auth_audit_log(user_id);
-CREATE INDEX IF NOT EXISTS idx_auth_audit_log_created_at ON auth_audit_log(created_at);
-
--- Insert default roles
-INSERT INTO roles (name, description) VALUES
-    ('ADMIN', 'System administrator with full access'),
-    ('INSTRUCTOR', 'Course instructor with teaching permissions'),
-    ('STUDENT', 'Student with learning permissions'),
-    ('MODERATOR', 'Content moderator with moderation permissions')
-ON CONFLICT (name) DO NOTHING;
-
--- Insert default permissions
-INSERT INTO permissions (name, description, resource, action) VALUES
-    ('USER_READ', 'Read user information', 'USER', 'READ'),
-    ('USER_WRITE', 'Create and update user information', 'USER', 'WRITE'),
-    ('USER_DELETE', 'Delete user accounts', 'USER', 'DELETE'),
-    ('COURSE_READ', 'Read course information', 'COURSE', 'READ'),
-    ('COURSE_WRITE', 'Create and update courses', 'COURSE', 'WRITE'),
-    ('COURSE_DELETE', 'Delete courses', 'COURSE', 'DELETE'),
-    ('ENROLLMENT_READ', 'Read enrollment information', 'ENROLLMENT', 'READ'),
-    ('ENROLLMENT_WRITE', 'Create and update enrollments', 'ENROLLMENT', 'WRITE'),
-    ('ENROLLMENT_DELETE', 'Delete enrollments', 'ENROLLMENT', 'DELETE'),
-    ('SYSTEM_ADMIN', 'Full system administration', 'SYSTEM', 'ADMIN')
-ON CONFLICT (name) DO NOTHING;
-
--- Assign permissions to roles
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r, permissions p
-WHERE r.name = 'ADMIN' AND p.name IN ('USER_READ', 'USER_WRITE', 'USER_DELETE', 'COURSE_READ', 'COURSE_WRITE', 'COURSE_DELETE', 'ENROLLMENT_READ', 'ENROLLMENT_WRITE', 'ENROLLMENT_DELETE', 'SYSTEM_ADMIN')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r, permissions p
-WHERE r.name = 'INSTRUCTOR' AND p.name IN ('USER_READ', 'COURSE_READ', 'COURSE_WRITE', 'ENROLLMENT_READ', 'ENROLLMENT_WRITE')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r, permissions p
-WHERE r.name = 'STUDENT' AND p.name IN ('USER_READ', 'COURSE_READ', 'ENROLLMENT_READ', 'ENROLLMENT_WRITE')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r, permissions p
-WHERE r.name = 'MODERATOR' AND p.name IN ('USER_READ', 'COURSE_READ', 'COURSE_WRITE', 'ENROLLMENT_READ')
-ON CONFLICT DO NOTHING;
-
--- Insert default admin user
--- Password: Admin123! (hashed with BCrypt)
-INSERT INTO users (username, email, password_hash, enabled) VALUES
-    ('admin', 'admin@edu-platform.com', '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xd00DMxs.AQubh4a', true),
-    ('instructor1', 'instructor1@edu-platform.com', '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xd00DMxs.AQubh4a', true),
-    ('student1', 'student1@edu-platform.com', '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xd00DMxs.AQubh4a', true)
-ON CONFLICT (username) DO NOTHING;
-
--- Assign roles to default users
-INSERT INTO user_roles (user_id, role_id)
-SELECT u.id, r.id
-FROM users u, roles r
-WHERE u.username = 'admin' AND r.name = 'ADMIN'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO user_roles (user_id, role_id)
-SELECT u.id, r.id
-FROM users u, roles r
-WHERE u.username = 'instructor1' AND r.name = 'INSTRUCTOR'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO user_roles (user_id, role_id)
-SELECT u.id, r.id
-FROM users u, roles r
-WHERE u.username = 'student1' AND r.name = 'STUDENT'
-ON CONFLICT DO NOTHING;
-
--- Create updated_at trigger function
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
--- Create triggers for updated_at
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Create views for easier querying
-CREATE OR REPLACE VIEW user_with_roles AS
-SELECT
-    u.id,
-    u.username,
-    u.email,
-    u.enabled,
-    u.created_at,
-    u.updated_at,
-    STRING_AGG(r.name, ', ') AS roles
-FROM users u
-LEFT JOIN user_roles ur ON u.id = ur.user_id
-LEFT JOIN roles r ON ur.role_id = r.id
-GROUP BY u.id, u.username, u.email, u.enabled, u.created_at, u.updated_at;
-
-CREATE OR REPLACE VIEW role_with_permissions AS
-SELECT
-    r.id,
-    r.name,
-    r.description,
-    STRING_AGG(p.name, ', ') AS permissions
-FROM roles r
-LEFT JOIN role_permissions rp ON r.id = rp.role_id
-LEFT JOIN permissions p ON rp.permission_id = p.id
-GROUP BY r.id, r.name, r.description;
-
--- Grant privileges
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO auth_user;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO auth_user;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO auth_user;
+---- Auth Service Database Initialization
+---- This script sets up the authentication database with users, roles, and permissions
+--
+---- Enable UUID extension
+--CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+--
+---- Users table
+--CREATE TABLE IF NOT EXISTS users (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    username VARCHAR(50) UNIQUE NOT NULL,
+--    email VARCHAR(100) UNIQUE NOT NULL,
+--    password_hash VARCHAR(255) NOT NULL,
+--    enabled BOOLEAN DEFAULT true,
+--    account_non_expired BOOLEAN DEFAULT true,
+--    account_non_locked BOOLEAN DEFAULT true,
+--    credentials_non_expired BOOLEAN DEFAULT true,
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+--);
+--
+---- Roles table
+--CREATE TABLE IF NOT EXISTS roles (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    name VARCHAR(50) UNIQUE NOT NULL,
+--    description TEXT,
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+--);
+--
+---- User roles junction table
+--CREATE TABLE IF NOT EXISTS user_roles (
+--    user_id UUID NOT NULL,
+--    role_id UUID NOT NULL,
+--    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    PRIMARY KEY (user_id, role_id),
+--    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+--    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+--);
+--
+---- Permissions table
+--CREATE TABLE IF NOT EXISTS permissions (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    name VARCHAR(100) UNIQUE NOT NULL,
+--    description TEXT,
+--    resource VARCHAR(50) NOT NULL,
+--    action VARCHAR(50) NOT NULL,
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+--);
+--
+---- Role permissions junction table
+--CREATE TABLE IF NOT EXISTS role_permissions (
+--    role_id UUID NOT NULL,
+--    permission_id UUID NOT NULL,
+--    granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    PRIMARY KEY (role_id, permission_id),
+--    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+--    FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
+--);
+--
+---- Password reset tokens table
+--CREATE TABLE IF NOT EXISTS password_reset_tokens (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    user_id UUID NOT NULL,
+--    token VARCHAR(255) UNIQUE NOT NULL,
+--    expires_at TIMESTAMP NOT NULL,
+--    used BOOLEAN DEFAULT false,
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+--);
+--
+---- Email verification tokens table
+--CREATE TABLE IF NOT EXISTS email_verification_tokens (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    user_id UUID NOT NULL,
+--    token VARCHAR(255) UNIQUE NOT NULL,
+--    expires_at TIMESTAMP NOT NULL,
+--    verified BOOLEAN DEFAULT false,
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+--);
+--
+---- Audit log table
+--CREATE TABLE IF NOT EXISTS auth_audit_log (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    user_id UUID,
+--    action VARCHAR(50) NOT NULL,
+--    resource VARCHAR(100),
+--    ip_address INET,
+--    user_agent TEXT,
+--    success BOOLEAN NOT NULL,
+--    error_message TEXT,
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+--);
+--
+---- Indexes for better performance
+--CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+--CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+--CREATE INDEX IF NOT EXISTS idx_users_enabled ON users(enabled);
+--CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON user_roles(user_id);
+--CREATE INDEX IF NOT EXISTS idx_user_roles_role_id ON user_roles(role_id);
+--CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+--CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
+--CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id ON email_verification_tokens(user_id);
+--CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_token ON email_verification_tokens(token);
+--CREATE INDEX IF NOT EXISTS idx_auth_audit_log_user_id ON auth_audit_log(user_id);
+--CREATE INDEX IF NOT EXISTS idx_auth_audit_log_created_at ON auth_audit_log(created_at);
+--
+---- Insert default roles
+--INSERT INTO roles (name, description) VALUES
+--    ('ADMIN', 'System administrator with full access'),
+--    ('INSTRUCTOR', 'Course instructor with teaching permissions'),
+--    ('STUDENT', 'Student with learning permissions'),
+--    ('MODERATOR', 'Content moderator with moderation permissions')
+--ON CONFLICT (name) DO NOTHING;
+--
+---- Insert default permissions
+--INSERT INTO permissions (name, description, resource, action) VALUES
+--    ('USER_READ', 'Read user information', 'USER', 'READ'),
+--    ('USER_WRITE', 'Create and update user information', 'USER', 'WRITE'),
+--    ('USER_DELETE', 'Delete user accounts', 'USER', 'DELETE'),
+--    ('COURSE_READ', 'Read course information', 'COURSE', 'READ'),
+--    ('COURSE_WRITE', 'Create and update courses', 'COURSE', 'WRITE'),
+--    ('COURSE_DELETE', 'Delete courses', 'COURSE', 'DELETE'),
+--    ('ENROLLMENT_READ', 'Read enrollment information', 'ENROLLMENT', 'READ'),
+--    ('ENROLLMENT_WRITE', 'Create and update enrollments', 'ENROLLMENT', 'WRITE'),
+--    ('ENROLLMENT_DELETE', 'Delete enrollments', 'ENROLLMENT', 'DELETE'),
+--    ('SYSTEM_ADMIN', 'Full system administration', 'SYSTEM', 'ADMIN')
+--ON CONFLICT (name) DO NOTHING;
+--
+---- Assign permissions to roles
+--INSERT INTO role_permissions (role_id, permission_id)
+--SELECT r.id, p.id
+--FROM roles r, permissions p
+--WHERE r.name = 'ADMIN' AND p.name IN ('USER_READ', 'USER_WRITE', 'USER_DELETE', 'COURSE_READ', 'COURSE_WRITE', 'COURSE_DELETE', 'ENROLLMENT_READ', 'ENROLLMENT_WRITE', 'ENROLLMENT_DELETE', 'SYSTEM_ADMIN')
+--ON CONFLICT DO NOTHING;
+--
+--INSERT INTO role_permissions (role_id, permission_id)
+--SELECT r.id, p.id
+--FROM roles r, permissions p
+--WHERE r.name = 'INSTRUCTOR' AND p.name IN ('USER_READ', 'COURSE_READ', 'COURSE_WRITE', 'ENROLLMENT_READ', 'ENROLLMENT_WRITE')
+--ON CONFLICT DO NOTHING;
+--
+--INSERT INTO role_permissions (role_id, permission_id)
+--SELECT r.id, p.id
+--FROM roles r, permissions p
+--WHERE r.name = 'STUDENT' AND p.name IN ('USER_READ', 'COURSE_READ', 'ENROLLMENT_READ', 'ENROLLMENT_WRITE')
+--ON CONFLICT DO NOTHING;
+--
+--INSERT INTO role_permissions (role_id, permission_id)
+--SELECT r.id, p.id
+--FROM roles r, permissions p
+--WHERE r.name = 'MODERATOR' AND p.name IN ('USER_READ', 'COURSE_READ', 'COURSE_WRITE', 'ENROLLMENT_READ')
+--ON CONFLICT DO NOTHING;
+--
+---- Insert default admin user
+---- Password: Admin123! (hashed with BCrypt)
+--INSERT INTO users (username, email, password_hash, enabled) VALUES
+--    ('admin', 'admin@edu-platform.com', '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xd00DMxs.AQubh4a', true),
+--    ('instructor1', 'instructor1@edu-platform.com', '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xd00DMxs.AQubh4a', true),
+--    ('student1', 'student1@edu-platform.com', '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xd00DMxs.AQubh4a', true)
+--ON CONFLICT (username) DO NOTHING;
+--
+---- Assign roles to default users
+--INSERT INTO user_roles (user_id, role_id)
+--SELECT u.id, r.id
+--FROM users u, roles r
+--WHERE u.username = 'admin' AND r.name = 'ADMIN'
+--ON CONFLICT DO NOTHING;
+--
+--INSERT INTO user_roles (user_id, role_id)
+--SELECT u.id, r.id
+--FROM users u, roles r
+--WHERE u.username = 'instructor1' AND r.name = 'INSTRUCTOR'
+--ON CONFLICT DO NOTHING;
+--
+--INSERT INTO user_roles (user_id, role_id)
+--SELECT u.id, r.id
+--FROM users u, roles r
+--WHERE u.username = 'student1' AND r.name = 'STUDENT'
+--ON CONFLICT DO NOTHING;
+--
+---- Create updated_at trigger function
+--CREATE OR REPLACE FUNCTION update_updated_at_column()
+--RETURNS TRIGGER AS $$
+--BEGIN
+--    NEW.updated_at = CURRENT_TIMESTAMP;
+--    RETURN NEW;
+--END;
+--$$ language 'plpgsql';
+--
+---- Create triggers for updated_at
+--CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+--    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+--
+---- Create views for easier querying
+--CREATE OR REPLACE VIEW user_with_roles AS
+--SELECT
+--    u.id,
+--    u.username,
+--    u.email,
+--    u.enabled,
+--    u.created_at,
+--    u.updated_at,
+--    STRING_AGG(r.name, ', ') AS roles
+--FROM users u
+--LEFT JOIN user_roles ur ON u.id = ur.user_id
+--LEFT JOIN roles r ON ur.role_id = r.id
+--GROUP BY u.id, u.username, u.email, u.enabled, u.created_at, u.updated_at;
+--
+--CREATE OR REPLACE VIEW role_with_permissions AS
+--SELECT
+--    r.id,
+--    r.name,
+--    r.description,
+--    STRING_AGG(p.name, ', ') AS permissions
+--FROM roles r
+--LEFT JOIN role_permissions rp ON r.id = rp.role_id
+--LEFT JOIN permissions p ON rp.permission_id = p.id
+--GROUP BY r.id, r.name, r.description;
+--
+---- Grant privileges
+--GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO auth_user;
+--GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO auth_user;
+--GRANT SELECT ON ALL TABLES IN SCHEMA public TO auth_user;

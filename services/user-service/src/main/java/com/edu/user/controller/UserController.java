@@ -3,6 +3,7 @@ package com.edu.user.controller;
 import com.edu.user.dto.ProfileDto;
 import com.edu.user.dto.UserDto;
 import com.edu.user.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,24 +29,24 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping("/me")
-    public ResponseEntity<UserDto> getCurrentUserProfile() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = auth.getName();
+    public ResponseEntity<UserDto> getCurrentUserProfile(HttpServletRequest request) {
+        String userIdHeader = request.getHeader("X-User-Id");
+        String username = request.getHeader("X-Username");
 
-        log.info("Fetching current user profile for: {}", username);
+        log.info("Fetching current user profile for: {} (ID: {})", username, userIdHeader);
 
-        // For now, we'll use a mock userId. In real implementation,
-        // you'd extract userId from JWT token
-        UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        if (userIdHeader == null || userIdHeader.trim().isEmpty()) {
+            throw new IllegalArgumentException("Missing X-User-Id header from API Gateway");
+        }
 
+        UUID userId = UUID.fromString(userIdHeader);
         UserDto userDto = userService.getUserProfile(userId);
         return ResponseEntity.ok(userDto);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<UserDto> getUserById(@PathVariable UUID id) {
+    public ResponseEntity<UserDto> getUserById(@PathVariable("id") UUID id) {
         log.info("Fetching user by id: {}", id);
-
         UserDto userDto = userService.getUserById(id);
         return ResponseEntity.ok(userDto);
     }
@@ -53,49 +54,71 @@ public class UserController {
     @GetMapping("/profile/{userId}")
     public ResponseEntity<UserDto> getUserProfile(@PathVariable("userId") UUID userId) {
         log.info("Fetching user profile for userId: {}", userId);
-
         UserDto userDto = userService.getUserProfile(userId);
         return ResponseEntity.ok(userDto);
     }
 
+    // ✅ FIXED: Create Profile with Headers from Gateway
     @PostMapping("/profile")
-    public ResponseEntity<UserDto> createUserProfile(@Valid @RequestBody ProfileDto profileDto) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = auth.getName();
+    public ResponseEntity<UserDto> createUserProfile(
+            @Valid @RequestBody ProfileDto profileDto,
+            HttpServletRequest request) {
 
-        log.info("Creating user profile for: {}", username);
+        // ✅ Extract user info from API Gateway headers
+        String userIdHeader = request.getHeader("X-User-Id");
+        String username = request.getHeader("X-Username");
+        String userRole = request.getHeader("X-User-Role");
 
-        // Extract userId from JWT token (mock for now)
-        UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        log.info("Creating user profile for userId: {}, username: {}, role: {}",
+                userIdHeader, username, userRole);
 
+        // Validate headers
+        if (userIdHeader == null || userIdHeader.trim().isEmpty()) {
+            throw new IllegalArgumentException("Missing X-User-Id header from API Gateway");
+        }
+
+        UUID userId = UUID.fromString(userIdHeader);
+
+        // Create profile
         UserDto userDto = userService.createUserProfile(userId, profileDto);
+
+        log.info("✅ User profile created successfully for userId: {}", userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(userDto);
     }
 
+    // ✅ FIXED: Update Profile with Headers
     @PutMapping("/profile")
-    public ResponseEntity<UserDto> updateUserProfile(@Valid @RequestBody ProfileDto profileDto) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = auth.getName();
+    public ResponseEntity<UserDto> updateUserProfile(
+            @Valid @RequestBody ProfileDto profileDto,
+            HttpServletRequest request) {
 
-        log.info("Updating user profile for: {}", username);
+        String userIdHeader = request.getHeader("X-User-Id");
+        String username = request.getHeader("X-Username");
 
-        // Extract userId from JWT token (mock for now)
-        UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        log.info("Updating user profile for userId: {}, username: {}", userIdHeader, username);
 
+        if (userIdHeader == null || userIdHeader.trim().isEmpty()) {
+            throw new IllegalArgumentException("Missing X-User-Id header from API Gateway");
+        }
+
+        UUID userId = UUID.fromString(userIdHeader);
         UserDto userDto = userService.updateUserProfile(userId, profileDto);
         return ResponseEntity.ok(userDto);
     }
 
+    // ✅ FIXED: Delete Profile with Headers
     @DeleteMapping("/profile")
-    public ResponseEntity<Map<String, String>> deleteUserProfile() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = auth.getName();
+    public ResponseEntity<Map<String, String>> deleteUserProfile(HttpServletRequest request) {
+        String userIdHeader = request.getHeader("X-User-Id");
+        String username = request.getHeader("X-Username");
 
-        log.info("Deleting user profile for: {}", username);
+        log.info("Deleting user profile for userId: {}, username: {}", userIdHeader, username);
 
-        // Extract userId from JWT token (mock for now)
-        UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        if (userIdHeader == null || userIdHeader.trim().isEmpty()) {
+            throw new IllegalArgumentException("Missing X-User-Id header from API Gateway");
+        }
 
+        UUID userId = UUID.fromString(userIdHeader);
         userService.deleteUserProfile(userId);
         return ResponseEntity.ok(Map.of("message", "User profile deleted successfully"));
     }
@@ -106,7 +129,6 @@ public class UserController {
             @PageableDefault(size = 20) Pageable pageable) {
 
         log.info("Searching users with query: {}", q);
-
         Page<UserDto> users = userService.searchUsers(q, pageable);
         return ResponseEntity.ok(users);
     }
@@ -116,7 +138,6 @@ public class UserController {
             @PageableDefault(size = 20) Pageable pageable) {
 
         log.info("Fetching public user profiles");
-
         Page<UserDto> users = userService.getPublicProfiles(pageable);
         return ResponseEntity.ok(users);
     }
@@ -124,7 +145,6 @@ public class UserController {
     @GetMapping("/location/{location}")
     public ResponseEntity<List<UserDto>> getUsersByLocation(@PathVariable String location) {
         log.info("Fetching users by location: {}", location);
-
         List<UserDto> users = userService.getUsersByLocation(location);
         return ResponseEntity.ok(users);
     }

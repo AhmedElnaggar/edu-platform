@@ -11,6 +11,9 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     first_name VARCHAR(50),
     last_name VARCHAR(50),
+    email_verified BOOLEAN DEFAULT FALSE,
+    email_verification_token VARCHAR(255),
+    email_verification_token_expiry TIMESTAMP,
     enabled BOOLEAN DEFAULT true,
     account_non_expired BOOLEAN DEFAULT true,
     account_non_locked BOOLEAN DEFAULT true,
@@ -39,6 +42,7 @@ CREATE TABLE user_roles (
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_enabled ON users(enabled);
+CREATE INDEX idx_verification_token ON users(email_verification_token);
 CREATE INDEX idx_user_roles_user_id ON user_roles(user_id);
 CREATE INDEX idx_user_roles_role_id ON user_roles(role_id);
 

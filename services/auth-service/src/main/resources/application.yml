@@ -30,6 +30,20 @@ spring:
         use_sql_comments: true
     open-in-view: false
 
+  # Mail Configuration
+  mail:
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:a39588494@gmail.com}
+    password: ${SMTP_PASSWORD:Lion@123456789}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
   # Flyway Configuration
   flyway:
     enabled: true
@@ -72,6 +86,19 @@ management:
     export:
       prometheus:
         enabled: true
+
+#app config
+app:
+  base-url: ${BASE_URL:http://localhost:8081}
+  user-service:
+    url: ${USER_SERVICE_URL:http://localhost:8081}
+
+  email:
+    from: ${FROM_EMAIL:noreply@eduplatform.com}
+
+  email-verification:
+    token-expiration-hours: 24
+
 
 # Logging
 logging:

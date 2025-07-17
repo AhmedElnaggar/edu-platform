@@ -51,8 +51,9 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
             System.out.println("✅ Token is valid, proceeding with request");
 
-            // Extract user information from token and add to request headers
-            this.populateRequestWithHeaders(exchange, token);
+            // ✅ FIXED: Extract user information and create mutated exchange
+            ServerWebExchange mutatedExchange = populateRequestWithHeaders(exchange, token);
+            return chain.filter(mutatedExchange); // ✅ Pass mutated exchange
         } else {
             System.out.println("🔓 Open endpoint, skipping authentication");
         }
@@ -87,7 +88,8 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         return !request.getHeaders().containsKey("Authorization");
     }
 
-    private void populateRequestWithHeaders(ServerWebExchange exchange, String token) {
+    // ✅ FIXED: Return mutated exchange instead of void
+    private ServerWebExchange populateRequestWithHeaders(ServerWebExchange exchange, String token) {
         try {
             String userId = jwtService.extractUserId(token);
             String userRole = jwtService.extractUserRole(token);
@@ -95,16 +97,20 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
             System.out.println("👤 Extracted user info - ID: " + userId + ", Username: " + username + ", Role: " + userRole);
 
+            // ✅ Create mutated request with headers
             ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
                     .header("X-User-Id", userId != null ? userId : "")
                     .header("X-User-Role", userRole != null ? userRole : "")
                     .header("X-Username", username != null ? username : "")
                     .build();
 
-            exchange.getRequest().mutate().build();
+            // ✅ Return mutated exchange with new request
+            return exchange.mutate().request(mutatedRequest).build();
 
         } catch (Exception e) {
             System.err.println("❌ Error extracting user info from token: " + e.getMessage());
+            e.printStackTrace();
+            return exchange; // Return original exchange on error
         }
     }
 
@@ -117,11 +123,16 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
                 "/auth/register",
                 "/auth/login",
                 "/auth/refresh",
+                "/api/v1/courses", // GET only for public course browsing
+                "/api/v1/courses/search",
+                "/api/v1/courses/category",
+                "/api/v1/courses/featured",
+                "/api/v1/courses/trending",
                 "/actuator",
                 "/health",
                 "/swagger-ui",
                 "/api-docs",
-                "/debug"  // Add debug endpoints to open list
+                "/debug"
         );
 
         // Check if the current path matches any open endpoint

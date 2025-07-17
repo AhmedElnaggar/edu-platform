@@ -1,5 +1,6 @@
 package com.edu.auth.controller;
 
+import com.edu.auth.dto.EmailVerificationRequest;
 import com.edu.auth.dto.LoginRequest;
 import com.edu.auth.dto.LoginResponse;
 import com.edu.auth.dto.RegisterRequest;
@@ -31,6 +32,12 @@ public class AuthController {
     public ResponseEntity<LoginResponse> register(@Valid @RequestBody RegisterRequest request) {
         log.info("Registration request received for username: {}", request.getUsername());
         LoginResponse response = authService.register(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<LoginResponse> verifyEmail(@Valid @RequestBody EmailVerificationRequest request) {
+        LoginResponse response = authService.verifyEmail(request.getToken());
         return ResponseEntity.ok(response);
     }
 

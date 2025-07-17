@@ -1,239 +1,239 @@
--- User Service Database Initialization
--- This script sets up the user profile and preferences database
-
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- User profiles table
-CREATE TABLE IF NOT EXISTS user_profiles (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID UNIQUE NOT NULL,
-    first_name VARCHAR(100),
-    last_name VARCHAR(100),
-    display_name VARCHAR(150),
-    bio TEXT,
-    profile_picture_url VARCHAR(500),
-    phone_number VARCHAR(20),
-    date_of_birth DATE,
-    gender VARCHAR(20),
-    location VARCHAR(200),
-    timezone VARCHAR(50) DEFAULT 'UTC',
-    language VARCHAR(10) DEFAULT 'en',
-    website_url VARCHAR(500),
-    social_links JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- User preferences table
-CREATE TABLE IF NOT EXISTS user_preferences (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID UNIQUE NOT NULL,
-    email_notifications BOOLEAN DEFAULT true,
-    push_notifications BOOLEAN DEFAULT true,
-    sms_notifications BOOLEAN DEFAULT false,
-    marketing_emails BOOLEAN DEFAULT false,
-    course_reminders BOOLEAN DEFAULT true,
-    assignment_reminders BOOLEAN DEFAULT true,
-    theme VARCHAR(20) DEFAULT 'light',
-    notifications_settings JSONB,
-    privacy_settings JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
-);
-
--- User education history table
-CREATE TABLE IF NOT EXISTS user_education (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL,
-    institution VARCHAR(200) NOT NULL,
-    degree VARCHAR(100),
-    field_of_study VARCHAR(150),
-    start_date DATE,
-    end_date DATE,
-    grade VARCHAR(20),
-    description TEXT,
-    is_current BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
-);
-
--- User work experience table
-CREATE TABLE IF NOT EXISTS user_experience (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL,
-    company VARCHAR(200) NOT NULL,
-    position VARCHAR(150) NOT NULL,
-    location VARCHAR(200),
-    start_date DATE,
-    end_date DATE,
-    description TEXT,
-    is_current BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
-);
-
--- User skills table
-CREATE TABLE IF NOT EXISTS user_skills (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL,
-    skill_name VARCHAR(100) NOT NULL,
-    skill_level VARCHAR(20) CHECK (skill_level IN ('BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT')),
-    years_of_experience INTEGER,
-    verified BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
-);
-
--- User achievements table
-CREATE TABLE IF NOT EXISTS user_achievements (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL,
-    achievement_type VARCHAR(50) NOT NULL,
-    achievement_name VARCHAR(200) NOT NULL,
-    description TEXT,
-    date_earned DATE,
-    issuer VARCHAR(200),
-    credential_id VARCHAR(100),
-    credential_url VARCHAR(500),
-    expires_at DATE,
-    badge_image_url VARCHAR(500),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
-);
-
--- User activity log table
-CREATE TABLE IF NOT EXISTS user_activity_log (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL,
-    activity_type VARCHAR(50) NOT NULL,
-    activity_description TEXT,
-    metadata JSONB,
-    ip_address INET,
-    user_agent TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
-);
-
--- User sessions table
-CREATE TABLE IF NOT EXISTS user_sessions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL,
-    session_token VARCHAR(255) UNIQUE NOT NULL,
-    device_info JSONB,
-    ip_address INET,
-    location VARCHAR(200),
-    is_active BOOLEAN DEFAULT true,
-    expires_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
-);
-
--- User learning preferences table
-CREATE TABLE IF NOT EXISTS user_learning_preferences (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID UNIQUE NOT NULL,
-    learning_style VARCHAR(50),
-    preferred_content_types TEXT[],
-    difficulty_preference VARCHAR(20) DEFAULT 'INTERMEDIATE',
-    study_time_preference VARCHAR(20) DEFAULT 'FLEXIBLE',
-    preferred_languages TEXT[],
-    accessibility_needs TEXT[],
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
-);
-
--- Indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_profiles_display_name ON user_profiles(display_name);
-CREATE INDEX IF NOT EXISTS idx_user_profiles_location ON user_profiles(location);
-CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_education_user_id ON user_education(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_experience_user_id ON user_experience(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_skills_user_id ON user_skills(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_skills_skill_name ON user_skills(skill_name);
-CREATE INDEX IF NOT EXISTS idx_user_achievements_user_id ON user_achievements(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_activity_log_user_id ON user_activity_log(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_activity_log_created_at ON user_activity_log(created_at);
-CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_sessions_session_token ON user_sessions(session_token);
-CREATE INDEX IF NOT EXISTS idx_user_sessions_is_active ON user_sessions(is_active);
-CREATE INDEX IF NOT EXISTS idx_user_learning_preferences_user_id ON user_learning_preferences(user_id);
-
--- Create updated_at trigger function
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
--- Create triggers for updated_at
-CREATE TRIGGER update_user_profiles_updated_at BEFORE UPDATE ON user_profiles
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_user_preferences_updated_at BEFORE UPDATE ON user_preferences
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_user_learning_preferences_updated_at BEFORE UPDATE ON user_learning_preferences
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Create trigger for session activity
-CREATE OR REPLACE FUNCTION update_session_activity()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.last_activity_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER update_user_sessions_activity BEFORE UPDATE ON user_sessions
-    FOR EACH ROW EXECUTE FUNCTION update_session_activity();
-
--- Insert sample data
-INSERT INTO user_profiles (user_id, first_name, last_name, display_name, bio, timezone, language) VALUES
-    ('00000000-0000-0000-0000-000000000001', 'John', 'Doe', 'John Doe', 'Software Engineer and Tech Enthusiast', 'America/New_York', 'en'),
-    ('00000000-0000-0000-0000-000000000002', 'Jane', 'Smith', 'Jane Smith', 'Mathematics Professor', 'America/Los_Angeles', 'en'),
-    ('00000000-0000-0000-0000-000000000003', 'Ahmed', 'Ali', 'Ahmed Ali', 'Computer Science Student', 'Asia/Riyadh', 'ar')
-ON CONFLICT (user_id) DO NOTHING;
-
-INSERT INTO user_preferences (user_id, email_notifications, push_notifications, theme) VALUES
-    ('00000000-0000-0000-0000-000000000001', true, true, 'dark'),
-    ('00000000-0000-0000-0000-000000000002', true, false, 'light'),
-    ('00000000-0000-0000-0000-000000000003', false, true, 'light')
-ON CONFLICT (user_id) DO NOTHING;
-
-INSERT INTO user_learning_preferences (user_id, learning_style, difficulty_preference, preferred_content_types) VALUES
-    ('00000000-0000-0000-0000-000000000001', 'VISUAL', 'ADVANCED', ARRAY['VIDEO', 'INTERACTIVE']),
-    ('00000000-0000-0000-0000-000000000002', 'READING', 'EXPERT', ARRAY['TEXT', 'DOCUMENT']),
-    ('00000000-0000-0000-0000-000000000003', 'KINESTHETIC', 'BEGINNER', ARRAY['HANDS_ON', 'INTERACTIVE'])
-ON CONFLICT (user_id) DO NOTHING;
-
--- Create views for common queries
-CREATE OR REPLACE VIEW user_profile_summary AS
-SELECT
-    up.user_id,
-    up.first_name,
-    up.last_name,
-    up.display_name,
-    up.bio,
-    up.profile_picture_url,
-    up.location,
-    up.timezone,
-    up.language,
-    upr.email_notifications,
-    upr.push_notifications,
-    upr.theme,
-    ulp.learning_style,
-    ulp.difficulty_preference
-FROM user_profiles up
-LEFT JOIN user_preferences upr ON up.user_id = upr.user_id
-LEFT JOIN user_learning_preferences ulp ON up.user_id = ulp.user_id;
-
--- Grant privileges
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO user_user;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO user_user;
+---- User Service Database Initialization
+---- This script sets up the user profile and preferences database
+--
+---- Enable UUID extension
+--CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+--
+---- User profiles table
+--CREATE TABLE IF NOT EXISTS user_profiles (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    user_id UUID UNIQUE NOT NULL,
+--    first_name VARCHAR(100),
+--    last_name VARCHAR(100),
+--    display_name VARCHAR(150),
+--    bio TEXT,
+--    profile_picture_url VARCHAR(500),
+--    phone_number VARCHAR(20),
+--    date_of_birth DATE,
+--    gender VARCHAR(20),
+--    location VARCHAR(200),
+--    timezone VARCHAR(50) DEFAULT 'UTC',
+--    language VARCHAR(10) DEFAULT 'en',
+--    website_url VARCHAR(500),
+--    social_links JSONB,
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+--);
+--
+---- User preferences table
+--CREATE TABLE IF NOT EXISTS user_preferences (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    user_id UUID UNIQUE NOT NULL,
+--    email_notifications BOOLEAN DEFAULT true,
+--    push_notifications BOOLEAN DEFAULT true,
+--    sms_notifications BOOLEAN DEFAULT false,
+--    marketing_emails BOOLEAN DEFAULT false,
+--    course_reminders BOOLEAN DEFAULT true,
+--    assignment_reminders BOOLEAN DEFAULT true,
+--    theme VARCHAR(20) DEFAULT 'light',
+--    notifications_settings JSONB,
+--    privacy_settings JSONB,
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
+--);
+--
+---- User education history table
+--CREATE TABLE IF NOT EXISTS user_education (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    user_id UUID NOT NULL,
+--    institution VARCHAR(200) NOT NULL,
+--    degree VARCHAR(100),
+--    field_of_study VARCHAR(150),
+--    start_date DATE,
+--    end_date DATE,
+--    grade VARCHAR(20),
+--    description TEXT,
+--    is_current BOOLEAN DEFAULT false,
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
+--);
+--
+---- User work experience table
+--CREATE TABLE IF NOT EXISTS user_experience (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    user_id UUID NOT NULL,
+--    company VARCHAR(200) NOT NULL,
+--    position VARCHAR(150) NOT NULL,
+--    location VARCHAR(200),
+--    start_date DATE,
+--    end_date DATE,
+--    description TEXT,
+--    is_current BOOLEAN DEFAULT false,
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
+--);
+--
+---- User skills table
+--CREATE TABLE IF NOT EXISTS user_skills (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    user_id UUID NOT NULL,
+--    skill_name VARCHAR(100) NOT NULL,
+--    skill_level VARCHAR(20) CHECK (skill_level IN ('BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT')),
+--    years_of_experience INTEGER,
+--    verified BOOLEAN DEFAULT false,
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
+--);
+--
+---- User achievements table
+--CREATE TABLE IF NOT EXISTS user_achievements (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    user_id UUID NOT NULL,
+--    achievement_type VARCHAR(50) NOT NULL,
+--    achievement_name VARCHAR(200) NOT NULL,
+--    description TEXT,
+--    date_earned DATE,
+--    issuer VARCHAR(200),
+--    credential_id VARCHAR(100),
+--    credential_url VARCHAR(500),
+--    expires_at DATE,
+--    badge_image_url VARCHAR(500),
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
+--);
+--
+---- User activity log table
+--CREATE TABLE IF NOT EXISTS user_activity_log (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    user_id UUID NOT NULL,
+--    activity_type VARCHAR(50) NOT NULL,
+--    activity_description TEXT,
+--    metadata JSONB,
+--    ip_address INET,
+--    user_agent TEXT,
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
+--);
+--
+---- User sessions table
+--CREATE TABLE IF NOT EXISTS user_sessions (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    user_id UUID NOT NULL,
+--    session_token VARCHAR(255) UNIQUE NOT NULL,
+--    device_info JSONB,
+--    ip_address INET,
+--    location VARCHAR(200),
+--    is_active BOOLEAN DEFAULT true,
+--    expires_at TIMESTAMP NOT NULL,
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
+--);
+--
+---- User learning preferences table
+--CREATE TABLE IF NOT EXISTS user_learning_preferences (
+--    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--    user_id UUID UNIQUE NOT NULL,
+--    learning_style VARCHAR(50),
+--    preferred_content_types TEXT[],
+--    difficulty_preference VARCHAR(20) DEFAULT 'INTERMEDIATE',
+--    study_time_preference VARCHAR(20) DEFAULT 'FLEXIBLE',
+--    preferred_languages TEXT[],
+--    accessibility_needs TEXT[],
+--    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--    FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE
+--);
+--
+---- Indexes for better performance
+--CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id);
+--CREATE INDEX IF NOT EXISTS idx_user_profiles_display_name ON user_profiles(display_name);
+--CREATE INDEX IF NOT EXISTS idx_user_profiles_location ON user_profiles(location);
+--CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id);
+--CREATE INDEX IF NOT EXISTS idx_user_education_user_id ON user_education(user_id);
+--CREATE INDEX IF NOT EXISTS idx_user_experience_user_id ON user_experience(user_id);
+--CREATE INDEX IF NOT EXISTS idx_user_skills_user_id ON user_skills(user_id);
+--CREATE INDEX IF NOT EXISTS idx_user_skills_skill_name ON user_skills(skill_name);
+--CREATE INDEX IF NOT EXISTS idx_user_achievements_user_id ON user_achievements(user_id);
+--CREATE INDEX IF NOT EXISTS idx_user_activity_log_user_id ON user_activity_log(user_id);
+--CREATE INDEX IF NOT EXISTS idx_user_activity_log_created_at ON user_activity_log(created_at);
+--CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+--CREATE INDEX IF NOT EXISTS idx_user_sessions_session_token ON user_sessions(session_token);
+--CREATE INDEX IF NOT EXISTS idx_user_sessions_is_active ON user_sessions(is_active);
+--CREATE INDEX IF NOT EXISTS idx_user_learning_preferences_user_id ON user_learning_preferences(user_id);
+--
+---- Create updated_at trigger function
+--CREATE OR REPLACE FUNCTION update_updated_at_column()
+--RETURNS TRIGGER AS $$
+--BEGIN
+--    NEW.updated_at = CURRENT_TIMESTAMP;
+--    RETURN NEW;
+--END;
+--$$ language 'plpgsql';
+--
+---- Create triggers for updated_at
+--CREATE TRIGGER update_user_profiles_updated_at BEFORE UPDATE ON user_profiles
+--    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+--
+--CREATE TRIGGER update_user_preferences_updated_at BEFORE UPDATE ON user_preferences
+--    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+--
+--CREATE TRIGGER update_user_learning_preferences_updated_at BEFORE UPDATE ON user_learning_preferences
+--    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+--
+---- Create trigger for session activity
+--CREATE OR REPLACE FUNCTION update_session_activity()
+--RETURNS TRIGGER AS $$
+--BEGIN
+--    NEW.last_activity_at = CURRENT_TIMESTAMP;
+--    RETURN NEW;
+--END;
+--$$ language 'plpgsql';
+--
+--CREATE TRIGGER update_user_sessions_activity BEFORE UPDATE ON user_sessions
+--    FOR EACH ROW EXECUTE FUNCTION update_session_activity();
+--
+---- Insert sample data
+--INSERT INTO user_profiles (user_id, first_name, last_name, display_name, bio, timezone, language) VALUES
+--    ('00000000-0000-0000-0000-000000000001', 'John', 'Doe', 'John Doe', 'Software Engineer and Tech Enthusiast', 'America/New_York', 'en'),
+--    ('00000000-0000-0000-0000-000000000002', 'Jane', 'Smith', 'Jane Smith', 'Mathematics Professor', 'America/Los_Angeles', 'en'),
+--    ('00000000-0000-0000-0000-000000000003', 'Ahmed', 'Ali', 'Ahmed Ali', 'Computer Science Student', 'Asia/Riyadh', 'ar')
+--ON CONFLICT (user_id) DO NOTHING;
+--
+--INSERT INTO user_preferences (user_id, email_notifications, push_notifications, theme) VALUES
+--    ('00000000-0000-0000-0000-000000000001', true, true, 'dark'),
+--    ('00000000-0000-0000-0000-000000000002', true, false, 'light'),
+--    ('00000000-0000-0000-0000-000000000003', false, true, 'light')
+--ON CONFLICT (user_id) DO NOTHING;
+--
+--INSERT INTO user_learning_preferences (user_id, learning_style, difficulty_preference, preferred_content_types) VALUES
+--    ('00000000-0000-0000-0000-000000000001', 'VISUAL', 'ADVANCED', ARRAY['VIDEO', 'INTERACTIVE']),
+--    ('00000000-0000-0000-0000-000000000002', 'READING', 'EXPERT', ARRAY['TEXT', 'DOCUMENT']),
+--    ('00000000-0000-0000-0000-000000000003', 'KINESTHETIC', 'BEGINNER', ARRAY['HANDS_ON', 'INTERACTIVE'])
+--ON CONFLICT (user_id) DO NOTHING;
+--
+---- Create views for common queries
+--CREATE OR REPLACE VIEW user_profile_summary AS
+--SELECT
+--    up.user_id,
+--    up.first_name,
+--    up.last_name,
+--    up.display_name,
+--    up.bio,
+--    up.profile_picture_url,
+--    up.location,
+--    up.timezone,
+--    up.language,
+--    upr.email_notifications,
+--    upr.push_notifications,
+--    upr.theme,
+--    ulp.learning_style,
+--    ulp.difficulty_preference
+--FROM user_profiles up
+--LEFT JOIN user_preferences upr ON up.user_id = upr.user_id
+--LEFT JOIN user_learning_preferences ulp ON up.user_id = ulp.user_id;
+--
+---- Grant privileges
+--GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO user_user;
+--GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO user_user;

@@ -31,5 +31,6 @@ public class LoginResponse {
         private String lastName;
         private Set<String> roles;
         private LocalDateTime lastLogin;
+        private boolean emailVerified;
     }
 }
