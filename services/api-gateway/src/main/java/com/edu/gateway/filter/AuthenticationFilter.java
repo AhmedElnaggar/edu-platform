@@ -121,6 +121,9 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         List<String> openApiEndpoints = List.of(
                 "/auth/register",
                 "/auth/login",
+                "/auth/verify-email",
+                "/auth/forgot-password",
+                "/auth/reset-password",
                 "/auth/refresh",
                 "/api/v1/courses", // GET only for public course browsing
                 "/api/v1/courses/search",

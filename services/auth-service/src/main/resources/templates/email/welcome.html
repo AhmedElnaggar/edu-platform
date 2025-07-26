@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to EDU Platform</title>
+    <style>
+        .container {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        .email-content {
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #007bff, #28a745);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px 20px;
+        }
+        .button {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            display: inline-block;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .feature {
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        .welcome-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="email-content">
+        <div class="header">
+            <div class="welcome-icon">🎉</div>
+            <h1>Welcome to EDU Platform!</h1>
+            <p>Your learning journey starts here</p>
+        </div>
+        <div class="content">
+            <h2>Hello <span th:text="${firstName}">User</span>!</h2>
+            <p>Congratulations! Your email has been verified and your account is now active. We're excited to have you join our learning community!</p>
+
+            <div class="features">
+                <div class="feature">
+                    <h4>📚 Browse Courses</h4>
+                    <p>Explore our wide range of educational content</p>
+                </div>
+                <div class="feature">
+                    <h4>📈 Track Progress</h4>
+                    <p>Monitor your learning achievements</p>
+                </div>
+                <div class="feature">
+                    <h4>👥 Connect</h4>
+                    <p>Engage with instructors and peers</p>
+                </div>
+                <div class="feature">
+                    <h4>📱 Learn Anywhere</h4>
+                    <p>Access content on any device</p>
+                </div>
+            </div>
+
+            <p>Ready to begin your learning adventure?</p>
+
+            <p style="text-align: center; margin: 30px 0;">
+                <a th:href="${baseUrl}" class="button">Start Learning Now</a>
+            </p>
+
+            <div style="background-color: #e9ecef; padding: 20px; border-radius: 6px; margin: 20px 0;">
+                <h4>Quick Tips to Get Started:</h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li>Complete your profile to get personalized recommendations</li>
+                    <li>Browse our featured courses to find topics that interest you</li>
+                    <li>Join discussion forums to connect with other learners</li>
+                    <li>Set learning goals to track your progress</li>
+                </ul>
+            </div>
+
+            <p>If you have any questions or need help getting started, don't hesitate to reach out to our support team.</p>
+
+            <p>Happy learning!<br>
+                <strong>The EDU Platform Team</strong></p>
+        </div>
+        <div class="footer">
+            <p>© 2025 EDU Platform. All rights reserved.</p>
+            <p>This email was sent to <span th:text="${firstName}">User</span> because you created an account on our platform.</p>
+        </div>
+    </div>
+</div>
+</body>
+</html>

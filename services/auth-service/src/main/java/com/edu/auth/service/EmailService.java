@@ -1,8 +1,11 @@
 package com.edu.auth.service;
 
+import com.edu.auth.event.PasswordResetRequestedEvent;
+import com.edu.auth.event.PasswordResetSuccessEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.event.EventListener;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.retry.annotation.Backoff;
@@ -149,48 +152,125 @@ public class EmailService {
         }
     }
 
-    // Password reset email using template
-    @Async("emailExecutor")
-    public CompletableFuture<Void> sendPasswordResetEmailAsync(User user, String resetToken) {
-        try {
-            String resetUrl = baseUrl + "/auth/reset-password?token=" + resetToken;
-
-            Context context = new Context();
-            context.setVariable("firstName", extractFirstNameFromUser(user));
-            context.setVariable("lastName", user.getLastName());
-            context.setVariable("resetUrl", resetUrl);
-            context.setVariable("baseUrl", baseUrl);
-
-            return sendTemplateEmailAsync(
-                    user.getEmail(),
-                    "email/password-reset",
-                    "Reset Your Password - EDU Platform",
-                    context
-            );
-        } catch (Exception e) {
-            log.error("Failed to send password reset email to: {}", user.getEmail(), e);
-            return CompletableFuture.failedFuture(e);
-        }
-    }
-
     // Welcome email using template
     @Async("emailExecutor")
+    @Retryable(
+            value = {Exception.class},
+            maxAttempts = 2,
+            backoff = @Backoff(delay = 1000, multiplier = 2)
+    )
     public CompletableFuture<Void> sendWelcomeEmailAsync(User user) {
+        if (!emailEnabled) {
+            log.info("Email sending is disabled, skipping welcome email for: {}", user.getEmail());
+            return CompletableFuture.completedFuture(null);
+        }
+
         try {
+            log.info("Sending welcome email to: {}", user.getEmail());
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail, "EDU Platform");
+            helper.setTo(user.getEmail());
+            helper.setSubject("Welcome to EDU Platform - Let's Get Started!");
+
             Context context = new Context();
             context.setVariable("firstName", extractFirstNameFromUser(user));
             context.setVariable("lastName", user.getLastName());
             context.setVariable("username", user.getUsername());
             context.setVariable("baseUrl", baseUrl);
 
-            return sendTemplateEmailAsync(
-                    user.getEmail(),
-                    "email/welcome",
-                    "Welcome to EDU Platform!",
-                    context
-            );
+            String htmlContent = templateEngine.process("email/welcome", context);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Welcome email sent successfully to: {}", user.getEmail());
+
+            return CompletableFuture.completedFuture(null);
+
         } catch (Exception e) {
             log.error("Failed to send welcome email to: {}", user.getEmail(), e);
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+
+
+    @Async("emailExecutor")
+    @Retryable(
+            value = {Exception.class},
+            maxAttempts = 2,
+            backoff = @Backoff(delay = 1000, multiplier = 2)
+    )
+    public CompletableFuture<Void> sendPasswordResetEmailAsync(User user, String resetToken) {
+        if (!emailEnabled) {
+            log.info("Email sending is disabled, skipping password reset email for: {}", user.getEmail());
+            return CompletableFuture.completedFuture(null);
+        }
+
+        try {
+            log.info("Sending password reset email to: {}", user.getEmail());
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail, "EDU Platform");
+            helper.setTo(user.getEmail());
+            helper.setSubject("Reset Your Password - EDU Platform");
+
+            String resetUrl = baseUrl + "/auth/reset-password?token=" + resetToken;
+
+            Context context = new Context();
+            context.setVariable("firstName", extractFirstNameFromUser(user));
+            context.setVariable("resetUrl", resetUrl);
+            context.setVariable("baseUrl", baseUrl);
+            context.setVariable("resetToken", resetToken);
+
+            String htmlContent = templateEngine.process("email/password-reset", context);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Password reset email sent successfully to: {}", user.getEmail());
+
+            return CompletableFuture.completedFuture(null);
+
+        } catch (Exception e) {
+            log.error("Failed to send password reset email to: {}", user.getEmail(), e);
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+
+    @Async("emailExecutor")
+    public CompletableFuture<Void> sendPasswordResetSuccessEmailAsync(User user) {
+        if (!emailEnabled) {
+            log.info("Email sending is disabled, skipping password reset success email for: {}", user.getEmail());
+            return CompletableFuture.completedFuture(null);
+        }
+
+        try {
+            log.info("Sending password reset success email to: {}", user.getEmail());
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail, "EDU Platform");
+            helper.setTo(user.getEmail());
+            helper.setSubject("Password Reset Successful - EDU Platform");
+
+            Context context = new Context();
+            context.setVariable("firstName", extractFirstNameFromUser(user));
+            context.setVariable("baseUrl", baseUrl);
+
+            String htmlContent = templateEngine.process("email/password-reset-success", context);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Password reset success email sent successfully to: {}", user.getEmail());
+
+            return CompletableFuture.completedFuture(null);
+
+        } catch (Exception e) {
+            log.error("Failed to send password reset success email to: {}", user.getEmail(), e);
             return CompletableFuture.failedFuture(e);
         }
     }

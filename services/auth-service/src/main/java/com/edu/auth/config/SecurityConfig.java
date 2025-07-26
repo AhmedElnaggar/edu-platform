@@ -28,7 +28,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
                         // Public endpoints
-                        .requestMatchers("/auth/login", "/auth/register").permitAll()
+                        .requestMatchers("/auth/login",  "/auth/verify-email", "/auth/forgot-password", "/auth/reset-password", "/auth/register").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         // Protected endpoints
                         .requestMatchers("/auth/validate", "/auth/refresh").authenticated()

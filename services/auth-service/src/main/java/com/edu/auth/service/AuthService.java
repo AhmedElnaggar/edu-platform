@@ -1,11 +1,10 @@
 package com.edu.auth.service;
 
-import com.edu.auth.dto.LoginRequest;
-import com.edu.auth.dto.LoginResponse;
-import com.edu.auth.dto.RegisterRequest;
+import com.edu.auth.dto.*;
 import com.edu.auth.entity.Role;
 import com.edu.auth.entity.User;
 import com.edu.auth.event.UserRegisteredEvent;
+import com.edu.auth.event.WelcomeEmailEvent;
 import com.edu.auth.exception.AuthenticationException;
 import com.edu.auth.exception.InvalidPasswordException;
 import com.edu.auth.exception.InvalidTokenException;
@@ -33,6 +32,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final EmailService emailService;
+    private final PasswordResetService passwordResetService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final ApplicationEventPublisher eventPublisher;
@@ -187,7 +187,7 @@ public class AuthService {
 
         User verifiedUser = userRepository.save(user);
 
-//        eventPublisher.publishEvent(new WelcomeEmailEvent(this, user));
+        eventPublisher.publishEvent(new WelcomeEmailEvent(this, user));
 
         // Generate JWT token for verified user
         String jwtToken = jwtService.generateAccessToken(verifiedUser);
@@ -219,6 +219,18 @@ public class AuthService {
     public String getUsernameFromToken(String token) {
         return jwtService.getUsernameFromToken(token);
     }
+    public PasswordResetResponse requestPasswordReset(ForgotPasswordRequest request) {
+        return passwordResetService.requestPasswordReset(request);
+    }
+
+    public PasswordResetResponse resetPassword(ResetPasswordRequest request) {
+        return passwordResetService.resetPassword(request);
+    }
+
+    public boolean validateResetToken(String token) {
+        return passwordResetService.validateResetToken(token);
+    }
+
     private String generateVerificationToken() {
         return UUID.randomUUID().toString();
     }

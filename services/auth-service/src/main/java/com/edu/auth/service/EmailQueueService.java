@@ -1,8 +1,6 @@
 package com.edu.auth.service;
 
-import com.edu.auth.event.EmailEvent;
-import com.edu.auth.event.UserRegisteredEvent;
-import com.edu.auth.event.VerificationEmailEvent;
+import com.edu.auth.event.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -54,6 +52,62 @@ public class EmailQueueService {
             }
         });
     }
+
+    @EventListener
+    @Async("emailExecutor")
+    public void handleWelcomeEmail(WelcomeEmailEvent event) {
+        log.info("Processing welcome email for: {}", event.getRecipient());
+
+        CompletableFuture<Void> emailFuture = emailService.sendWelcomeEmailAsync(event.getUser());
+
+        emailFuture.whenComplete((result, throwable) -> {
+            if (throwable != null) {
+                log.error("Welcome email sending failed for user: {}",
+                        event.getUser().getId(), throwable);
+                // Optional: Add to retry queue if needed
+            } else {
+                log.info("Welcome email sent successfully to: {}", event.getRecipient());
+            }
+        });
+    }
+
+    // Add these methods to your existing EmailQueueService class
+
+    @EventListener
+    @Async("emailExecutor")
+    public void handlePasswordResetRequested(PasswordResetRequestedEvent event) {
+        log.info("Processing password reset email for: {}", event.getRecipient());
+
+        CompletableFuture<Void> emailFuture = emailService.sendPasswordResetEmailAsync(
+                event.getUser(), event.getResetToken());
+
+        emailFuture.whenComplete((result, throwable) -> {
+            if (throwable != null) {
+                log.error("Password reset email sending failed for user: {}",
+                        event.getUser().getId(), throwable);
+            } else {
+                log.info("Password reset email sent successfully to: {}", event.getRecipient());
+            }
+        });
+    }
+
+    @EventListener
+    @Async("emailExecutor")
+    public void handlePasswordResetSuccess(PasswordResetSuccessEvent event) {
+        log.info("Processing password reset success email for: {}", event.getRecipient());
+
+        CompletableFuture<Void> emailFuture = emailService.sendPasswordResetSuccessEmailAsync(event.getUser());
+
+        emailFuture.whenComplete((result, throwable) -> {
+            if (throwable != null) {
+                log.error("Password reset success email sending failed for user: {}",
+                        event.getUser().getId(), throwable);
+            } else {
+                log.info("Password reset success email sent successfully to: {}", event.getRecipient());
+            }
+        });
+    }
+
 
     @EventListener
     @Async("emailExecutor")
