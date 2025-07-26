@@ -5,6 +5,7 @@ import com.edu.auth.dto.LoginResponse;
 import com.edu.auth.dto.RegisterRequest;
 import com.edu.auth.entity.Role;
 import com.edu.auth.entity.User;
+import com.edu.auth.event.UserRegisteredEvent;
 import com.edu.auth.exception.AuthenticationException;
 import com.edu.auth.exception.InvalidPasswordException;
 import com.edu.auth.exception.InvalidTokenException;
@@ -14,6 +15,7 @@ import com.edu.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,8 +32,11 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final ApplicationEventPublisher eventPublisher;
+
 
     @Value("${app.email-verification.token-expiration-hours:24}")
     private int emailVerificationTokenExpirationHours;
@@ -140,10 +145,11 @@ public class AuthService {
             // Rollback user creation in auth service
             userRepository.delete(savedUser);
             throw new RuntimeException("Failed to create user profile: " + e.getMessage());
-        }
+        }*/
 
         // Send verification email
-        emailService.sendVerificationEmail(savedUser);*/
+//        emailService.sendVerificationEmail(user);
+        eventPublisher.publishEvent(new UserRegisteredEvent(this, user));
 
 
         log.info("Successful registration for username: {}", request.getUsername());
@@ -180,6 +186,8 @@ public class AuthService {
         user.setEmailVerificationTokenExpiry(null);
 
         User verifiedUser = userRepository.save(user);
+
+//        eventPublisher.publishEvent(new WelcomeEmailEvent(this, user));
 
         // Generate JWT token for verified user
         String jwtToken = jwtService.generateAccessToken(verifiedUser);

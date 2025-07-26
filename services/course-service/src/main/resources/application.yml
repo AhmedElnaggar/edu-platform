@@ -4,7 +4,8 @@ server:
 spring:
   application:
     name: course-service
-
+  config:
+    import: "optional:consul:"
   # MongoDB Configuration
   data:
     mongodb:
@@ -47,7 +48,7 @@ auth-service:
 user-service:
   url: http://localhost:8082
 
-# Management & Monitoring
+## Management & Monitoring
 management:
   endpoints:
     web:

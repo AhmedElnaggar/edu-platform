@@ -57,6 +57,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Consul Configuration -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-consul-config</artifactId>
+        </dependency>
+
+
         <!-- Spring Cloud Consul Discovery -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>

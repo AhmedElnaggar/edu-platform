@@ -4,7 +4,8 @@ server:
 spring:
   application:
     name: auth-service
-
+  config:
+    import: "optional:consul:"
   # Database Configuration
   datasource:
     url: jdbc:postgresql://localhost:5432/auth_service
@@ -35,7 +36,8 @@ spring:
     host: ${SMTP_HOST:smtp.gmail.com}
     port: ${SMTP_PORT:587}
     username: ${SMTP_USERNAME:a39588494@gmail.com}
-    password: ${SMTP_PASSWORD:Lion@123456789}
+    ##Lion@123456789
+    password: ${SMTP_PASSWORD:lhvc ejms mtdb bwwq}
     properties:
       mail:
         smtp:
@@ -43,6 +45,15 @@ spring:
           starttls:
             enable: true
             required: true
+
+  task:
+    execution:
+      pool:
+        core-size: 5
+        max-size: 20
+        queue-capacity: 100
+        keep-alive: 60s
+      thread-name-prefix: "async-"
 
   # Flyway Configuration
   flyway:
@@ -56,6 +67,10 @@ spring:
       host: localhost
       port: 8500
       discovery:
+        enabled: true
+        register: true
+        ip-address: ${SERVICE_IP:127.0.0.1}  # Explicit IP
+        hostname: ${SERVICE_HOSTNAME:localhost}  # Override hostname
         service-name: auth-service
         health-check-path: /actuator/health
         health-check-interval: 60s
@@ -89,7 +104,7 @@ management:
 
 #app config
 app:
-  base-url: ${BASE_URL:http://localhost:8081}
+  base-url: ${BASE_URL:http://localhost:8080}
   user-service:
     url: ${USER_SERVICE_URL:http://localhost:8081}
 

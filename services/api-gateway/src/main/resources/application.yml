@@ -4,8 +4,15 @@ server:
 spring:
   application:
     name: api-gateway
+  config:
+    import: "optional:consul:"
   cloud:
     gateway:
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 60000  # Global HTTP client timeout
+        pool:
+          max-idle-time: 30000   # Connection pool timeout
       discovery:
         locator:
           enabled: true
@@ -23,6 +30,9 @@ spring:
                 redis-rate-limiter.burstCapacity: 10
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userKeyResolver}"
+          metadata:
+            response-timeout: 60000    # Per-route timeout
+            connect-timeout: 5000      # Per-route connect timeout
         - id: user-service
           uri: lb://user-service
           predicates:
@@ -35,6 +45,9 @@ spring:
                 redis-rate-limiter.burstCapacity: 20
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userKeyResolver}"
+          metadata:
+            response-timeout: 60000
+            connect-timeout: 5000
         - id: course-service
           uri: lb://course-service
           predicates:
@@ -47,6 +60,30 @@ spring:
                 redis-rate-limiter.burstCapacity: 20
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userKeyResolver}"
+          metadata:
+            response-timeout: 60000
+            connect-timeout: 5000
+#      default-filters:
+#        - name: Retry
+#          args:
+#            retries: 3
+#            statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE
+#            methods: GET,POST
+#        - name: CircuitBreaker
+#          args:
+#            name: gateway-circuit-breaker
+#            fallbackUri: forward:/fallback
+
+# Additional timeout configurations
+hystrix:
+  command:
+    default:
+      execution:
+        timeout:
+          enabled: true
+        isolation:
+          thread:
+            timeoutInMilliseconds: 60000
 
   # Redis Configuration
   redis:
@@ -87,7 +124,7 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
-# Management endpoints
+## Management endpoints
 management:
   endpoints:
     web:

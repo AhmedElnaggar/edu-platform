@@ -4,7 +4,8 @@ server:
 spring:
   application:
     name: user-service
-
+  config:
+    import: "optional:consul:"
   # Database Configuration
   datasource:
     url: jdbc:postgresql://localhost:5433/user_service

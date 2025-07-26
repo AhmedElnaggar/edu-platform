@@ -213,8 +213,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - JAVA_OPTS=-Xmx512m -Xms256m
+      - CONSUL_HOST=consul
+      - SPRING_PROFILES_ACTIVE=dev
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s
@@ -241,8 +241,8 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - JAVA_OPTS=-Xmx512m -Xms256m
+      - CONSUL_HOST=consul
+      - SPRING_PROFILES_ACTIVE=dev
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
       interval: 30s
@@ -273,8 +273,8 @@ services:
     ports:
       - "8082:8082"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - JAVA_OPTS=-Xmx512m -Xms256m
+      - CONSUL_HOST=consul
+      - SPRING_PROFILES_ACTIVE=dev
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
       interval: 30s
@@ -305,8 +305,8 @@ services:
     ports:
       - "8083:8083"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - JAVA_OPTS=-Xmx512m -Xms256m
+      - CONSUL_HOST=consul
+      - SPRING_PROFILES_ACTIVE=dev
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
       interval: 30s
@@ -386,6 +386,7 @@ volumes:
   auth_data:
   user_data:
   course_data:
+  consul_data:
   redis_data:
   prometheus_data:
   grafana_data:
